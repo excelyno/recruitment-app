@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { auth, db } from "../firebase"; // Pastikan path import ini benar
+import { auth, db } from "../firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
@@ -19,105 +19,94 @@ export default function Login() {
         try {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
-
-            // Cek apakah user terdaftar sebagai admin di Firestore
             const adminDoc = await getDoc(doc(db, "admins", user.uid));
 
             if (adminDoc.exists()) {
                 navigate("/dashboard");
             } else {
-                setError("Akses Ditolak: Anda bukan admin sistem.");
+                setError("Akses ditolak.");
                 await auth.signOut();
             }
         } catch (err) {
-            setError("Autentikasi Gagal: Cek email atau password.");
-            console.error(err);
+            setError("Email atau password tidak valid.");
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4 relative overflow-hidden font-mono text-sm">
+        <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center relative overflow-hidden font-sans selection:bg-emerald-200">
 
-            {/* Background Grid Effect (Hiasan Latar Belakang) */}
-            <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f3923_1px,transparent_1px),linear-gradient(to_bottom,#0f3923_1px,transparent_1px)] bg-[size:4rem_4rem]"></div>
+            {/* --- ANIMATED BACKGROUND SHAPES --- */}
+            <div className="absolute inset-0 w-full h-full pointer-events-none">
+                {/* Shape 1: Lingkaran Besar Kiri Atas */}
+                <div className="absolute top-[-10%] left-[-5%] w-[500px] h-[500px] bg-emerald-100 rounded-full mix-blend-multiply filter blur-3xl opacity-60 animate-float-slow"></div>
+
+                {/* Shape 2: Lingkaran Kanan Bawah */}
+                <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-teal-100 rounded-full mix-blend-multiply filter blur-3xl opacity-60 animate-float-medium" style={{ animationDelay: '1s' }}></div>
+
+                {/* Shape 3: Kotak Miring Kecil (Aksen Teknis) */}
+                <div className="absolute top-[20%] right-[15%] w-24 h-24 bg-gradient-to-br from-emerald-400 to-teal-300 rounded-3xl opacity-20 animate-spin-slow blur-sm"></div>
+
+                {/* Shape 4: Kotak Miring Kecil (Aksen Teknis 2) */}
+                <div className="absolute bottom-[20%] left-[15%] w-16 h-16 bg-gradient-to-tr from-teal-400 to-emerald-300 rounded-xl opacity-20 animate-float-fast blur-sm" style={{ animationDelay: '2s' }}></div>
             </div>
 
-            {/* Main Terminal Card */}
-            <div className="w-full max-w-md bg-[#0a0a0a] border border-green-900 rounded-lg shadow-[0_0_50px_rgba(16,185,129,0.1)] relative z-10">
+            {/* --- GLASS CARD --- */}
+            <div className="relative w-full max-w-[380px] p-8 z-10">
 
-                {/* Terminal Header Bar */}
-                <div className="bg-[#111] px-4 py-2 rounded-t-lg border-b border-green-900 flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
-                    <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
-                    <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
-                    <span className="ml-2 text-green-700 text-xs">root@laos-server:~</span>
-                </div>
+                {/* Kartu Transparan */}
+                <div className="bg-white/60 backdrop-blur-2xl rounded-[2rem] shadow-[0_20px_40px_rgba(0,0,0,0.04)] border border-white/50 p-8">
 
-                <div className="p-8">
-                    {/* Header Text */}
-                    <div className="mb-8 text-center">
-                        <h1 className="text-3xl font-bold text-green-500 tracking-tighter mb-2">
-                            {`> SUDO LOGIN_`}
-                            <span className="animate-pulse">|</span>
-                        </h1>
-                        <p className="text-gray-500">LAOS Open Source Recruitment</p>
+                    <div className="mb-8">
+                        <h1 className="text-2xl font-bold text-gray-800 mb-1 tracking-tight">Welcome Back</h1>
+                        <p className="text-gray-400 text-sm font-medium">Please enter your details.</p>
                     </div>
 
-                    {/* Error Message */}
                     {error && (
-                        <div className="mb-4 p-3 border border-red-900 bg-red-900/10 text-red-500 text-center rounded text-xs">
-                            [ERROR] {error}
+                        <div className="mb-5 text-center p-3 rounded-xl bg-red-50 text-red-500 text-xs font-semibold border border-red-100">
+                            {error}
                         </div>
                     )}
 
                     <form onSubmit={handleLogin} className="space-y-5">
 
-                        {/* Email Input */}
-                        <div className="space-y-1">
-                            <label className="text-green-700 text-xs uppercase tracking-wider font-bold block">User Identifier (Email)</label>
+                        {/* Email */}
+                        <div className="group">
                             <input
                                 type="email"
                                 required
-                                className="w-full bg-[#050505] border border-green-900 text-green-400 p-3 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all placeholder-green-900/50 rounded-sm"
-                                placeholder="admin@laos.org"
+                                className="w-full bg-white/50 px-5 py-4 rounded-2xl border border-gray-200 text-gray-700 placeholder-gray-400 text-sm focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all duration-300"
+                                placeholder="Email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
                         </div>
 
-                        {/* Password Input */}
-                        <div className="space-y-1">
-                            <label className="text-green-700 text-xs uppercase tracking-wider font-bold block">Access Key (Password)</label>
+                        {/* Password */}
+                        <div className="group">
                             <input
                                 type="password"
                                 required
-                                className="w-full bg-[#050505] border border-green-900 text-green-400 p-3 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all placeholder-green-900/50 rounded-sm"
-                                placeholder="••••••••"
+                                className="w-full bg-white/50 px-5 py-4 rounded-2xl border border-gray-200 text-gray-700 placeholder-gray-400 text-sm focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all duration-300"
+                                placeholder="Password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                             />
                         </div>
 
-                        {/* Submit Button */}
+                        {/* Tombol Utama */}
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full py-3 mt-4 bg-green-600 hover:bg-green-500 text-black font-bold uppercase tracking-widest transition-all duration-200 hover:shadow-[0_0_20px_rgba(34,197,94,0.4)] disabled:opacity-50 disabled:cursor-not-allowed border border-green-400"
+                            className="w-full py-4 rounded-2xl bg-gray-900 hover:bg-emerald-600 text-white font-bold text-sm tracking-wide transition-all duration-300 shadow-lg hover:shadow-emerald-500/30 hover:-translate-y-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {loading ? "AUTHENTICATING..." : "ENTER SYSTEM"}
+                            {loading ? "Processing..." : "Sign In"}
                         </button>
                     </form>
-
-                    {/* Footer Text */}
-                    <div className="mt-8 text-center text-xs text-gray-700">
-                        <p>System version 1.0.0-stable</p>
-                        <p>&copy; {new Date().getFullYear()} Linux & Open Source</p>
-                    </div>
                 </div>
             </div>
+
         </div>
     );
 }

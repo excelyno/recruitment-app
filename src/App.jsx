@@ -1,22 +1,28 @@
-// GANTI IMPORT DI BAWAH INI
-import { HashRouter as Router, Routes, Route } from "react-router-dom";
+import { HashRouter as Router, Routes, Route } from "react-router-dom"; // Pakai HashRouter biar aman pas deploy
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import Apply from "./pages/Apply";
+import Apply from "./pages/Apply"; // <--- IMPORT HALAMANNYA
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
-    // Gunakan 'Router' yang sekarang adalah HashRouter
     <Router>
       <Routes>
-        {/* Halaman Login */}
+        {/* Halaman Login Admin */}
         <Route path="/" element={<Login />} />
 
-        {/* Halaman Dashboard Admin */}
-        <Route path="/dashboard" element={<Dashboard />} />
-
-        {/* Halaman Pendaftaran */}
+        {/* Halaman Pendaftaran (INI YANG KURANG TADI) */}
         <Route path="/daftar" element={<Apply />} />
+
+        {/* Halaman Dashboard (Protected) */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </Router>
   );

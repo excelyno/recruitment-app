@@ -1,18 +1,19 @@
-// src/pages/Apply.jsx
 import { useState } from "react";
 import { db } from "../firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion"; // IMPORT INI
+import SuccessModal from "../components/SuccessModal"; // IMPORT MODAL
 
 export default function Apply() {
     const [formData, setFormData] = useState({
-        nama: "",
-        prodi: "",
-        whatsapp: "",
-        divisi: "acara", // Default pilihan
-        motivasi: "",
+        nama: "", prodi: "", whatsapp: "", divisi: "acara", motivasi: "",
     });
     const [loading, setLoading] = useState(false);
+
+    // State untuk Modal Sukses
+    const [showSuccess, setShowSuccess] = useState(false);
+
     const navigate = useNavigate();
 
     const handleChange = (e) => {
@@ -24,84 +25,115 @@ export default function Apply() {
         setLoading(true);
 
         try {
-            // Simpan ke Firestore collection 'applicants'
             await addDoc(collection(db, "applicants"), {
                 ...formData,
-                status: "pending", // Status awal
-                nilai: { // Nilai default 0 sebelum dinilai admin
-                    speaking: 0,
-                    teknis: 0,
-                    teamwork: 0,
-                    attitude: 0,
-                    kreativitas: 0,
-                    solving: 0
-                },
+                status: "pending",
+                recruiterNotes: "",
+                nilai: { speaking: 0, teknis: 0, teamwork: 0, attitude: 0, kreativitas: 0, solving: 0 },
                 createdAt: serverTimestamp()
             });
 
-            alert("Pendaftaran Berhasil! Data kamu sudah masuk.");
-            // Reset form atau arahkan ke halaman thanks (di sini kita reload aja)
-            window.location.reload();
+            // Tampilkan Modal Animasi Sukses
+            setShowSuccess(true);
 
-        } catch (error) {
-            console.error("Error:", error);
-            alert("Gagal mengirim data. Coba lagi.");
+        } catch (err) {
+            console.error("Error:", err);
+            alert("Gagal mengirim data."); // Error gapapa pake alert dulu
         } finally {
             setLoading(false);
         }
     };
 
+    const handleCloseModal = () => {
+        setShowSuccess(false);
+        navigate("/");
+    };
+
     return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-            <div className="bg-white max-w-2xl w-full rounded-2xl shadow-xl overflow-hidden">
-                <div className="bg-blue-600 p-6 text-center text-white">
-                    <h1 className="text-3xl font-bold">Open Recruitment</h1>
-                    <p className="opacity-90 mt-1">Silahkan isi data diri dengan jujur.</p>
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center py-10 px-4 font-sans selection:bg-cyan-200">
+
+            {/* Modal Component */}
+            <SuccessModal
+                isOpen={showSuccess}
+                onClose={handleCloseModal}
+                title="Lamaran Terkirim!"
+                message="Data kamu sudah masuk ke sistem kami. Good luck!"
+            />
+
+            <motion.div
+                initial={{ opacity: 0, y: 50 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="max-w-xl w-full bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden relative"
+            >
+                <div className="h-3 w-full bg-gradient-to-r from-cyan-500 to-blue-600"></div>
+
+                <div className="p-8 md:p-10">
+                    <div className="mb-8">
+                        <motion.h1
+                            initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
+                            className="text-3xl font-black text-slate-900 tracking-tight"
+                        >
+                            Join The Team 🚀
+                        </motion.h1>
+                        <motion.p
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
+                            className="text-slate-500 mt-2"
+                        >
+                            Lengkapi formulir di bawah ini untuk bergabung bersama kami.
+                        </motion.p>
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        {/* Input Fields dengan sedikit animasi focus (bawaan tailwind transition sudah cukup smooth, kita main di container) */}
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nama Lengkap</label>
+                            <input required name="nama" onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all font-semibold text-slate-700 placeholder:text-slate-300" placeholder="Nama Kamu" />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Prodi / Angkatan</label>
+                                <input required name="prodi" onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all text-sm" placeholder="Ex: IF '22" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">WhatsApp</label>
+                                <input required name="whatsapp" type="number" onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all text-sm" placeholder="08..." />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Pilihan Divisi</label>
+                            <div className="relative">
+                                <select name="divisi" onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all text-sm appearance-none cursor-pointer text-slate-700 font-medium">
+                                    <option value="acara">Divisi Acara</option>
+                                    <option value="humas">Divisi Humas</option>
+                                    <option value="pdd">Divisi PDD (Dokumentasi)</option>
+                                    <option value="perkab">Divisi Perlengkapan</option>
+                                </select>
+                                <div className="absolute right-4 top-4 pointer-events-none text-slate-400 text-xs">▼</div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Motivasi</label>
+                            <textarea required name="motivasi" rows="4" onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all text-sm resize-none" placeholder="Ceritakan singkat kenapa kamu ingin bergabung..."></textarea>
+                        </div>
+
+                        <motion.button
+                            type="submit"
+                            disabled={loading}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 shadow-lg shadow-slate-200 disabled:opacity-50 mt-4"
+                        >
+                            {loading ? "Mengirim..." : "Kirim Lamaran Sekarang"}
+                        </motion.button>
+                    </form>
                 </div>
+            </motion.div>
 
-                <form onSubmit={handleSubmit} className="p-8 space-y-6">
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
-                            <input required name="nama" onChange={handleChange} type="text" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Contoh: Ahmad Fauzi" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Program Studi</label>
-                            <input required name="prodi" onChange={handleChange} type="text" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Contoh: Informatika" />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Nomor WhatsApp</label>
-                            <input required name="whatsapp" onChange={handleChange} type="number" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="0812xxxx" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Pilihan Divisi</label>
-                            <select name="divisi" onChange={handleChange} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-                                <option value="acara">Divisi Acara</option>
-                                <option value="humas">Divisi Humas</option>
-                                <option value="pdd">Divisi PDD</option>
-                                <option value="perkab">Divisi Perkab</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Motivasi Bergabung (Singkat)</label>
-                        <textarea required name="motivasi" onChange={handleChange} rows="4" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Jelaskan kenapa kami harus memilih kamu..."></textarea>
-                    </div>
-
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className={`w-full py-4 rounded-xl text-white font-bold text-lg shadow-lg transition transform hover:-translate-y-1 ${loading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}
-                    >
-                        {loading ? "Sedang Mengirim..." : "Kirim Lamaran"}
-                    </button>
-                </form>
-            </div>
+            <p className="mt-8 text-xs text-slate-400 font-medium">© 2024 Recruitment Portal</p>
         </div>
     );
 }
