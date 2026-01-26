@@ -66,7 +66,7 @@ export default function Sidebar({ userRole = "guest", mobileOpen, setMobileOpen 
                     L
                 </div>
                 <span className="font-bold text-lg tracking-tight text-slate-800">
-                    Recruit<span className="text-emerald-600">AI</span>
+                    Recruit<span className="text-green-600">LAWOS</span>
                 </span>
             </div>
 
