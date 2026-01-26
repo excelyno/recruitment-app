@@ -2,8 +2,8 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-// Mengambil config dari Environment Variables (.env)
-const firebaseConfig = {
+// --- TAMBAHKAN KATA 'export' DI DEPAN SINI ---
+export const firebaseConfig = {
     apiKey: import.meta.env.VITE_API_KEY,
     authDomain: import.meta.env.VITE_AUTH_DOMAIN,
     projectId: import.meta.env.VITE_PROJECT_ID,
@@ -14,6 +14,5 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Export Auth & Database
 export const auth = getAuth(app);
 export const db = getFirestore(app);

@@ -28,7 +28,7 @@ export default function ProtectedRoute({ children }) {
 
     // Jika tidak ada user setelah loading selesai, tendang ke Login
     if (!user) {
-        return <Navigate to="/" replace />;
+        return <Navigate to="/aDmIn-LoGiN" replace />;
     }
 
     // Jika aman, tampilkan halaman yang diminta (Dashboard)

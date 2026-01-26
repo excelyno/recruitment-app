@@ -3,6 +3,7 @@ import { auth, db } from "../firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 
 export default function Login() {
     const [email, setEmail] = useState("");
@@ -24,89 +25,78 @@ export default function Login() {
             if (adminDoc.exists()) {
                 navigate("/dashboard");
             } else {
-                setError("Akses ditolak.");
+                setError("Restricted Access.");
                 await auth.signOut();
             }
         } catch (err) {
-            setError("Email atau password tidak valid.");
+            setError("Invalid credentials.");
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center relative overflow-hidden font-sans selection:bg-emerald-200">
+        <div className="min-h-screen flex items-center justify-center p-4">
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="w-full max-w-sm"
+            >
+                <div className="glass p-10 rounded-3xl text-center">
+                    <motion.div
+                        initial={{ scale: 0.9 }} animate={{ scale: 1 }}
+                        className="w-16 h-16 bg-sage-200 rounded-full mx-auto mb-6 flex items-center justify-center text-2xl"
+                    >
+                        🌿
+                    </motion.div>
 
-            {/* --- ANIMATED BACKGROUND SHAPES --- */}
-            <div className="absolute inset-0 w-full h-full pointer-events-none">
-                {/* Shape 1: Lingkaran Besar Kiri Atas */}
-                <div className="absolute top-[-10%] left-[-5%] w-[500px] h-[500px] bg-emerald-100 rounded-full mix-blend-multiply filter blur-3xl opacity-60 animate-float-slow"></div>
-
-                {/* Shape 2: Lingkaran Kanan Bawah */}
-                <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-teal-100 rounded-full mix-blend-multiply filter blur-3xl opacity-60 animate-float-medium" style={{ animationDelay: '1s' }}></div>
-
-                {/* Shape 3: Kotak Miring Kecil (Aksen Teknis) */}
-                <div className="absolute top-[20%] right-[15%] w-24 h-24 bg-gradient-to-br from-emerald-400 to-teal-300 rounded-3xl opacity-20 animate-spin-slow blur-sm"></div>
-
-                {/* Shape 4: Kotak Miring Kecil (Aksen Teknis 2) */}
-                <div className="absolute bottom-[20%] left-[15%] w-16 h-16 bg-gradient-to-tr from-teal-400 to-emerald-300 rounded-xl opacity-20 animate-float-fast blur-sm" style={{ animationDelay: '2s' }}></div>
-            </div>
-
-            {/* --- GLASS CARD --- */}
-            <div className="relative w-full max-w-[380px] p-8 z-10">
-
-                {/* Kartu Transparan */}
-                <div className="bg-white/60 backdrop-blur-2xl rounded-[2rem] shadow-[0_20px_40px_rgba(0,0,0,0.04)] border border-white/50 p-8">
-
-                    <div className="mb-8">
-                        <h1 className="text-2xl font-bold text-gray-800 mb-1 tracking-tight">Welcome Back</h1>
-                        <p className="text-gray-400 text-sm font-medium">Please enter your details.</p>
-                    </div>
+                    <h1 className="text-2xl font-bold text-slate-800 mb-1 tracking-tight">Welcome Back</h1>
+                    <p className="text-slate-400 text-sm mb-8">Please enter your details.</p>
 
                     {error && (
-                        <div className="mb-5 text-center p-3 rounded-xl bg-red-50 text-red-500 text-xs font-semibold border border-red-100">
+                        <motion.div
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                            className="text-xs text-rose-500 bg-rose-50 p-2 rounded-lg mb-4 font-medium"
+                        >
                             {error}
-                        </div>
+                        </motion.div>
                     )}
 
-                    <form onSubmit={handleLogin} className="space-y-5">
-
-                        {/* Email */}
-                        <div className="group">
+                    <form onSubmit={handleLogin} className="space-y-4 text-left">
+                        <div>
                             <input
                                 type="email"
                                 required
-                                className="w-full bg-white/50 px-5 py-4 rounded-2xl border border-gray-200 text-gray-700 placeholder-gray-400 text-sm focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all duration-300"
-                                placeholder="Email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
+                                className="w-full bg-slate-50 border-0 px-4 py-3 rounded-xl text-sm focus:ring-2 focus:ring-sage-300 outline-none transition-all placeholder:text-slate-300"
+                                placeholder="Email"
                             />
                         </div>
-
-                        {/* Password */}
-                        <div className="group">
+                        <div>
                             <input
                                 type="password"
                                 required
-                                className="w-full bg-white/50 px-5 py-4 rounded-2xl border border-gray-200 text-gray-700 placeholder-gray-400 text-sm focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all duration-300"
-                                placeholder="Password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
+                                className="w-full bg-slate-50 border-0 px-4 py-3 rounded-xl text-sm focus:ring-2 focus:ring-sage-300 outline-none transition-all placeholder:text-slate-300"
+                                placeholder="Password"
                             />
                         </div>
 
-                        {/* Tombol Utama */}
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
                             type="submit"
                             disabled={loading}
-                            className="w-full py-4 rounded-2xl bg-gray-900 hover:bg-emerald-600 text-white font-bold text-sm tracking-wide transition-all duration-300 shadow-lg hover:shadow-emerald-500/30 hover:-translate-y-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full py-3 rounded-xl bg-sage-600 hover:bg-sage-700 text-white font-bold text-sm transition-all shadow-lg shadow-sage-200 disabled:opacity-50 mt-2"
                         >
-                            {loading ? "Processing..." : "Sign In"}
-                        </button>
+                            {loading ? "..." : "Sign In"}
+                        </motion.button>
                     </form>
                 </div>
-            </div>
-
+            </motion.div>
         </div>
     );
 }

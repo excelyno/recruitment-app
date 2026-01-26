@@ -1,28 +1,40 @@
-import { HashRouter as Router, Routes, Route } from "react-router-dom"; // Pakai HashRouter biar aman pas deploy
+import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import Apply from "./pages/Apply"; // <--- IMPORT HALAMANNYA
+import Apply from "./pages/Apply";
 import ProtectedRoute from "./components/ProtectedRoute";
+import DashboardLayout from "./components/DashboardLayout";
+import AdminManagement from "./pages/AdminManagement";
+import GlobalAcceptedList from "./pages/GlobalAcceptedList";
+import DivisionList from "./pages/DivisionList";
+import FormBuilder from "./pages/FormBuilder";
 
 function App() {
   return (
     <Router>
       <Routes>
-        {/* Halaman Login Admin */}
-        <Route path="/" element={<Login />} />
+        {/* --- AREA PUBLIK (PESERTA) --- */}
+        {/* Halaman utama langsung buka Form Pendaftaran */}
+        <Route path="/" element={<Apply />} />
+        {/* Opsional: Kalau peserta iseng ngetik /daftar, tetap arahkan ke form */}
+        <Route path="/daftar" element={<Navigate to="/" replace />} />
 
-        {/* Halaman Pendaftaran (INI YANG KURANG TADI) */}
-        <Route path="/daftar" element={<Apply />} />
 
-        {/* Halaman Dashboard (Protected) */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
+        {/* --- AREA ADMIN (RAHASIA) --- */}
+        {/* Pintu masuk admin dipindah ke /admin-login */}
+        <Route path="/aDmIn-LoGiN" element={<Login />} />
+
+        {/* Semua halaman Dashboard dilindungi */}
+        <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+          <Route path="/DaShbOaRd" element={<Dashboard />} />
+          <Route path="/aDmIn-MaNaGeMeNt" element={<AdminManagement />} />
+          <Route path="/gLoBaL-aCcEpTeD" element={<GlobalAcceptedList />} />
+          <Route path="/mY-dIvIsIoN" element={<DivisionList />} />
+          <Route path="/fOrM-bUiLdEr" element={<FormBuilder />} />
+        </Route>
+
+        {/* Redirect: Kalau ada yang nyasar ke halaman ngawur, balikin ke Form */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

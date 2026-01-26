@@ -9,113 +9,136 @@ import {
   Legend,
 } from 'chart.js';
 import { Radar } from 'react-chartjs-2';
-import { useState } from 'react'; // Import useState
-import ScoringModal from './ScoringModal'; // Import Modal
+import { useState } from 'react';
+import ScoringModal from './ScoringModal';
 
-ChartJS.register(
-  RadialLinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip,
-  Legend
-);
+ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
-export default function RecruitCard({ dataPelamar }) {
-  const [showModal, setShowModal] = useState(false); // State untuk buka/tutup modal
+export default function RecruitCard({ dataPelamar, onUpdateSuccess }) {
+  const [showModal, setShowModal] = useState(false);
 
-  // --- CONFIG CHART (Sama seperti sebelumnya) ---
+  // Hitung Rata-rata Real-time
+  const nilai = dataPelamar.nilai;
+  const totalScore = Object.values(nilai).reduce((a, b) => a + b, 0);
+  const average = Math.round(totalScore / 6);
+
+  // --- CONFIG CHART YANG LEBIH CANTIK & INTERAKTIF ---
   const data = {
-    labels: ['Public Speaking', 'Teknis', 'Teamwork', 'Attitude', 'Kreativitas', 'Prob. Solving'],
+    labels: ['Speaking', 'Teknis', 'Teamwork', 'Attitude', 'Kreatif', 'Solving'],
     datasets: [
       {
-        label: 'Skor',
+        label: 'Skor Kompetensi',
         data: [
-          dataPelamar.nilai.speaking,
-          dataPelamar.nilai.teknis,
-          dataPelamar.nilai.teamwork,
-          dataPelamar.nilai.attitude,
-          dataPelamar.nilai.kreativitas,
-          dataPelamar.nilai.solving,
+          nilai.speaking,
+          nilai.teknis,
+          nilai.teamwork,
+          nilai.attitude,
+          nilai.kreativitas,
+          nilai.solving,
         ],
-        backgroundColor: 'rgba(37, 99, 235, 0.2)',
-        borderColor: 'rgba(37, 99, 235, 1)',
+        backgroundColor: 'rgba(59, 130, 246, 0.2)', // Biru transparan
+        borderColor: '#2563eb', // Biru solid
         borderWidth: 2,
-        pointBackgroundColor: 'rgba(37, 99, 235, 1)',
+        pointBackgroundColor: '#fff',
+        pointBorderColor: '#2563eb',
+        pointHoverBackgroundColor: '#2563eb',
+        pointHoverBorderColor: '#fff',
+        pointRadius: 3,
+        pointHoverRadius: 5,
       },
     ],
   };
 
   const options = {
+    responsive: true,
+    maintainAspectRatio: false,
     scales: {
       r: {
-        angleLines: { color: '#e5e7eb' },
-        grid: { color: '#e5e7eb' },
+        angleLines: { color: 'rgba(0,0,0,0.1)' },
+        grid: { color: 'rgba(0,0,0,0.05)' },
+        pointLabels: {
+          font: { size: 10, weight: 'bold', family: 'sans-serif' },
+          color: '#64748b', // Slate 500
+        },
+        ticks: { display: false, stepSize: 20 }, // Hilangkan angka ruwet di background
         suggestedMin: 0,
         suggestedMax: 100,
-        ticks: { display: false, stepSize: 20 },
-        pointLabels: { font: { size: 10, weight: 'bold' }, color: '#4b5563' }
       },
     },
-    plugins: { legend: { display: false } }
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(15, 23, 42, 0.9)', // Tooltip gelap
+        titleFont: { size: 13 },
+        bodyFont: { size: 12 },
+        padding: 10,
+        cornerRadius: 8,
+        displayColors: false,
+      }
+    },
   };
-
-  // Hitung OVR
-  const nilaiValues = Object.values(dataPelamar.nilai);
-  const average = Math.round(nilaiValues.reduce((a, b) => a + b, 0) / nilaiValues.length);
-
-  // Logic Warna Kartu
-  let cardColor = "bg-white border-gray-100";
-  let badgeColor = "bg-gray-100 text-gray-600";
-
-  if (average >= 85) {
-    cardColor = "bg-yellow-50 border-yellow-200 ring-1 ring-yellow-300";
-    badgeColor = "bg-yellow-500 text-white shadow-yellow-500/50";
-  } else if (average >= 70) {
-    cardColor = "bg-slate-50 border-slate-300";
-    badgeColor = "bg-slate-600 text-white";
-  }
 
   return (
     <>
-      <div className={`relative rounded-2xl shadow-sm hover:shadow-xl border p-6 ${cardColor} transition-all duration-300`}>
-        {/* Badge OVR */}
-        <div className={`absolute top-4 right-4 ${badgeColor} w-10 h-10 flex items-center justify-center rounded-full font-black text-lg shadow-md z-10`}>
-          {average}
-        </div>
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow duration-300">
 
-        {/* Header */}
-        <div className="mb-2 pr-10">
-          <h3 className="text-lg font-bold text-gray-800 truncate">{dataPelamar.nama}</h3>
-          <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">{dataPelamar.prodi}</p>
-        </div>
-
-        {/* Chart Area */}
-        <div className="h-56 w-full flex items-center justify-center mb-4 relative">
-          <Radar data={data} options={options} />
-        </div>
-
-        {/* Detail & Action */}
-        <div className="border-t pt-4 border-gray-200/50">
-          <div className="flex justify-between items-center text-sm text-gray-600 mb-4">
-            <span>WhatsApp:</span>
-            <span className="font-medium text-gray-800">{dataPelamar.whatsapp}</span>
+        {/* Header Nama */}
+        <div className="flex justify-between items-start mb-2">
+          <div>
+            <h3 className="text-gray-900 font-bold text-lg leading-tight truncate w-40">
+              {dataPelamar.nama}
+            </h3>
+            <p className="text-xs text-blue-600 font-bold uppercase tracking-wider mt-1">
+              {dataPelamar.prodi}
+            </p>
           </div>
+          {/* Badge Status */}
+          <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase ${dataPelamar.status === 'reviewed'
+              ? 'bg-emerald-100 text-emerald-700'
+              : 'bg-amber-100 text-amber-700'
+            }`}>
+            {dataPelamar.status === 'reviewed' ? 'Dinilai' : 'Pending'}
+          </span>
+        </div>
 
-          <button
-            onClick={() => setShowModal(true)} // Buka Modal
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-sm font-bold shadow-blue-500/30 shadow-lg transition transform active:scale-95"
+        {/* --- AREA CHART DENGAN ANGKA DI TENGAH (FIXED) --- */}
+        <div className="relative h-56 w-full my-2">
+          {/* Chart */}
+          <Radar data={data} options={options} />
+
+          {/* Angka Tengah Absolut - Pasti Center */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm w-12 h-12 rounded-full shadow-sm border border-slate-100">
+              <span className="text-sm font-black text-slate-800">{average}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="flex gap-2 mt-4 pt-4 border-t border-slate-50">
+          <a
+            href={`https://wa.me/${dataPelamar.whatsapp}`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center"
           >
-            {average === 0 ? "Beri Penilaian" : "Edit Nilai"}
+            WhatsApp
+          </a>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex-1 bg-slate-900 hover:bg-blue-600 text-white py-2 rounded-xl text-xs font-bold transition shadow-lg shadow-slate-200"
+          >
+            Beri Nilai
           </button>
         </div>
       </div>
 
-      {/* RENDER MODAL JIKA STATE TRUE */}
+      {/* Panggil Modal */}
       {showModal && (
         <ScoringModal
           pelamar={dataPelamar}
           onClose={() => setShowModal(false)}
+          onSuccess={onUpdateSuccess} // Fungsi update tanpa refresh
         />
       )}
     </>

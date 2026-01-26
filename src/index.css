@@ -2,11 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
-  scroll-behavior: smooth;
+@layer utilities {
+  .glass {
+    @apply bg-white/70 backdrop-blur-lg border border-white/50 shadow-sm;
+  }
+
+  .glass-hover {
+    @apply hover:bg-white/90 transition-all duration-300;
+  }
 }
 
-/* Custom Scrollbar biar gak kaku */
+html {
+  scroll-behavior: smooth;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  @apply text-slate-800 bg-sage-50 antialiased;
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -17,10 +32,5 @@ html {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  @apply bg-sage-300 rounded-full hover:bg-sage-400 transition-colors;
 }
