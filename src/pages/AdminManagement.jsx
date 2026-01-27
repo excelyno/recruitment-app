@@ -1,34 +1,35 @@
 import { useEffect, useState } from "react";
 import { db } from "../firebase";
-import { collection, getDocs, deleteDoc, doc } from "firebase/firestore";
-import { motion, AnimatePresence } from "framer-motion";
+import { collection, getDocs, deleteDoc, doc } from "firebase/firestore"; // Tetap butuh ini untuk fetch & delete ADMIN
+import { motion } from "framer-motion";
 import { UserCog, Trash2, Plus, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import AddAdminModal from "../components/AddAdminModal";
+import { useApplicants } from "../context/ApplicantContext"; // 1. Import Context
 
 export default function AdminManagement() {
+    // 2. Ambil data pelamar dari Context (GRATIS, tidak sedot kuota read)
+    const { applicants } = useApplicants();
+
     const [admins, setAdmins] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
     const [visiblePasswords, setVisiblePasswords] = useState({});
-    const [applicants, setApplicants] = useState([]);
 
-    // Fetch Data
-    const fetchData = async () => {
+    // Fetch Data (KHUSUS ADMIN SAJA)
+    const fetchAdmins = async () => {
         setLoading(true);
         try {
-            // 1. Ambil Data Pelamar untuk Statistik
-            const appSnapshot = await getDocs(collection(db, "applicants"));
-            const appList = appSnapshot.docs.map(doc => doc.data());
-            setApplicants(appList);
+            // --- BAGIAN INI DIHAPUS (Hemat Kuota) ---
+            // const appSnapshot = await getDocs(collection(db, "applicants")); 
+            // ...
 
-            // 2. Ambil Data Admin
+            // --- CUKUP AMBIL DATA ADMIN ---
             const querySnapshot = await getDocs(collection(db, "admins"));
             const adminList = querySnapshot.docs.map(doc => {
                 const data = doc.data();
                 return {
                     id: doc.id,
                     ...data,
-                    // FIX ERROR: Berikan nilai default jika kosong
                     name: data.name || "Admin",
                     role: data.role || "guest",
                     email: data.email || "-"
@@ -52,12 +53,14 @@ export default function AdminManagement() {
     };
 
     useEffect(() => {
-        fetchData();
+        fetchAdmins();
     }, []);
 
-    // Hitung Statistik per Admin
+    // Hitung Statistik (Menggunakan data dari Context)
     const getStats = (role) => {
         const r = (role || "").toLowerCase();
+
+        // Jika Superadmin, hitung total semua
         if (r === 'superadmin') {
             return {
                 total: applicants.length,
@@ -65,6 +68,7 @@ export default function AdminManagement() {
             };
         }
 
+        // Jika Admin Divisi, filter berdasarkan divisi mereka
         const divApps = applicants.filter(app => (app.divisi || "").toLowerCase() === r);
         const accepted = divApps.filter(app => app.status === 'accepted').length;
 
@@ -81,7 +85,7 @@ export default function AdminManagement() {
         if (!window.confirm("Yakin ingin menghapus akses admin ini?")) return;
         try {
             await deleteDoc(doc(db, "admins", id));
-            fetchData(); // Refresh list
+            fetchAdmins(); // Refresh list admin
         } catch (e) {
             alert("Gagal menghapus: " + e.message);
         }
@@ -122,7 +126,7 @@ export default function AdminManagement() {
                         <tbody className="divide-y divide-slate-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="5" className="p-8 text-center text-slate-400">Loading data...</td>
+                                    <td colSpan="5" className="p-8 text-center text-slate-400">Loading admin data...</td>
                                 </tr>
                             ) : admins.map((admin) => {
                                 const stats = getStats(admin.role);
@@ -139,7 +143,6 @@ export default function AdminManagement() {
                                             <div className="flex items-center gap-4">
                                                 <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white shadow-md
                                                     ${isSuper ? 'bg-gradient-to-br from-indigo-500 to-purple-600' : 'bg-gradient-to-br from-emerald-400 to-teal-600'}`}>
-                                                    {/* FIX: Menggunakan Optional Chaining & Default Value */}
                                                     {(admin.name || "A").charAt(0).toUpperCase()}
                                                 </div>
                                                 <div>
@@ -207,7 +210,7 @@ export default function AdminManagement() {
             </div>
 
             {/* Modal Tambah Admin */}
-            <AddAdminModal isOpen={showAddModal} onClose={() => { setShowAddModal(false); fetchData(); }} />
+            <AddAdminModal isOpen={showAddModal} onClose={() => { setShowAddModal(false); fetchAdmins(); }} />
         </div>
     );
 }

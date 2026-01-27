@@ -1,35 +1,18 @@
-import { useEffect, useState } from "react";
-import { db } from "../firebase";
-import { collection, getDocs } from "firebase/firestore";
 import { motion } from "framer-motion";
+import { useApplicants } from "../context/ApplicantContext"; // 1. Import Context
 
 export default function GlobalAcceptedList() {
-    const [accepted, setAccepted] = useState([]);
-    const [loading, setLoading] = useState(true);
+    // 2. Ambil data dari Gudang Pusat
+    const { applicants, loading } = useApplicants();
 
-    useEffect(() => {
-        const fetchAccepted = async () => {
-            setLoading(true);
-            try {
-                const querySnapshot = await getDocs(collection(db, "applicants"));
-                const data = querySnapshot.docs
-                    .map(doc => ({ id: doc.id, ...doc.data() }))
-                    .filter(app => app.status === 'accepted');
+    // 3. Logic Filter & Sort (Client Side)
+    // Langsung ambil dari 'applicants' context, filter yang statusnya 'accepted'
+    const acceptedList = applicants
+        .filter(app => app.status === 'accepted')
+        .sort((a, b) => a.divisi.localeCompare(b.divisi) || a.nama.localeCompare(b.nama));
 
-                // Sort by Division then Name
-                data.sort((a, b) => a.divisi.localeCompare(b.divisi) || a.nama.localeCompare(b.nama));
-                setAccepted(data);
-            } catch (e) {
-                console.error("Error fetching accepted list:", e);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchAccepted();
-    }, []);
-
-    // Group by Division
-    const grouped = accepted.reduce((acc, curr) => {
+    // 4. Grouping by Division
+    const grouped = acceptedList.reduce((acc, curr) => {
         const div = curr.divisi || "umum";
         if (!acc[div]) acc[div] = [];
         acc[div].push(curr);
@@ -44,7 +27,7 @@ export default function GlobalAcceptedList() {
             </div>
 
             {loading ? (
-                <div className="text-center py-10 text-slate-400">Loading...</div>
+                <div className="text-center py-10 text-slate-400">Loading data...</div>
             ) : Object.keys(grouped).length === 0 ? (
                 <div className="text-center py-20 text-slate-400">No accepted candidates yet.</div>
             ) : (
@@ -73,7 +56,8 @@ export default function GlobalAcceptedList() {
                                             <td className="p-4 pl-6 font-bold text-slate-700">{app.nama}</td>
                                             <td className="p-4 text-slate-500">{app.prodi}</td>
                                             <td className="p-4 text-center font-bold text-emerald-600">
-                                                {Math.round(Object.values(app.nilai || {}).reduce((a, b) => a + parseInt(b), 0) / 6)}
+                                                {/* Safety Check untuk hitung nilai */}
+                                                {Math.round(Object.values(app.nilai || {}).reduce((a, b) => a + (parseInt(b) || 0), 0) / 6)}
                                             </td>
                                             <td className="p-4">
                                                 <a href={`https://wa.me/${app.whatsapp}`} target="_blank" rel="noreferrer" className="text-sage-600 hover:underline font-bold text-xs">

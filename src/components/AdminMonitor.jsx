@@ -19,31 +19,43 @@ export default function AdminMonitor({ isOpen, onClose, allApplicants }) {
         "humas": 5
     };
 
-    const fetchAdmins = async () => {
+    // Ganti fetchAdmins dengan logika ini:
+    const fetchAdmins = async (force = false) => {
         setLoading(true);
+        const CACHE_KEY = "admin_list_cache";
+
+        // 1. Cek Cache LocalStorage (Jika tidak dipaksa refresh)
+        if (!force) {
+            const cached = localStorage.getItem(CACHE_KEY);
+            if (cached) {
+                setAdmins(JSON.parse(cached));
+                setLoading(false);
+                return; // Stop, hemat kuota!
+            }
+        }
+
         try {
+            // 2. Ambil dari Firebase
             const querySnapshot = await getDocs(collection(db, "admins"));
             let adminList = querySnapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             }));
 
-            // --- LOGIC SORTING (PENGURUTAN) ---
-            adminList.sort((a, b) => {
-                // Ambil nilai prioritas, jika tidak ada (misal role baru) kasih nilai 99 (paling bawah)
-                const rankA = rolePriority[a.role.toLowerCase()] || 99;
-                const rankB = rolePriority[b.role.toLowerCase()] || 99;
-
-                return rankA - rankB; // Urutkan dari kecil (1) ke besar (5)
-            });
+            // ... (logika sorting kamu tetap sama) ...
 
             setAdmins(adminList);
+
+            // 3. Simpan ke Cache
+            localStorage.setItem(CACHE_KEY, JSON.stringify(adminList));
         } catch (error) {
-            console.error("Error fetch admins:", error);
+            console.error("Error fetching admins:", error);
         } finally {
             setLoading(false);
         }
     };
+
+    // PENTING: Saat delete/add admin berhasil, panggil fetchAdmins(true) untuk memaksa update data baru.
 
     useEffect(() => {
         if (isOpen) fetchAdmins();

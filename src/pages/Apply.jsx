@@ -1,64 +1,99 @@
 import { useState, useEffect } from "react";
 import { db } from "../firebase";
-import { collection, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
+import {
+    doc,
+    setDoc,
+    getDoc,
+    serverTimestamp
+} from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 import SuccessModal from "../components/SuccessModal";
 import AnimatedBackground from "../components/AnimatedBackground";
 import { Loader2 } from "lucide-react";
 
 export default function Apply() {
-    // 1. Data Statis (Wajib)
     const [formData, setFormData] = useState({
         nama: "",
+        nim: "",
         prodi: "",
-        angkatan: "", // Field baru sesuai request
+        angkatan: "",
         whatsapp: "",
-        divisi: "", // Default kosong biar user pilih dulu
+        divisi: "",
     });
 
-    // 2. Data Dinamis (Sesuai Form Builder)
     const [dynamicQuestions, setDynamicQuestions] = useState([]);
-    const [dynamicAnswers, setDynamicAnswers] = useState({}); // Menyimpan jawaban custom
-
-    const [loadingConfig, setLoadingConfig] = useState(false); // Loading saat ganti divisi
+    const [dynamicAnswers, setDynamicAnswers] = useState({});
+    const [loadingConfig, setLoadingConfig] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
-    const navigate = useNavigate();
 
-    // EFFECT: Fetch Pertanyaan saat Divisi Berubah
+    // --- LOGIC BARU: FETCH SOAL DENGAN CACHE LOCALSTORAGE ---
     useEffect(() => {
+        // Reset jika divisi dikosongkan
         if (!formData.divisi) {
             setDynamicQuestions([]);
             return;
         }
 
-        const fetchQuestions = async () => {
+        const fetchQuestionsWithCache = async () => {
             setLoadingConfig(true);
+            const CACHE_KEY = `form_cache_${formData.divisi}`;
+            const CACHE_DURATION = 60 * 60 * 1000; // 1 JAM (Durasi Cache)
+
             try {
-                // Ambil config dari collection 'formConfigs' doc ID sesuai divisi
+                // 1. CEK LOCAL STORAGE DULU (Offline First)
+                const cachedData = localStorage.getItem(CACHE_KEY);
+
+                if (cachedData) {
+                    const { data, timestamp } = JSON.parse(cachedData);
+                    const now = Date.now();
+
+                    // Cek Umur Data: Kalau masih fresh (< 1 jam), pakai ini!
+                    if (now - timestamp < CACHE_DURATION) {
+                        console.log(`⚡ Menggunakan Soal dari Cache: ${formData.divisi}`);
+                        setDynamicQuestions(data);
+                        setLoadingConfig(false);
+                        return; // STOP DISINI, TIDAK PERLU KE FIREBASE
+                    }
+                }
+
+                // 2. JIKA CACHE KOSONG / BASI -> DOWNLOAD BARU
+                console.log(`🔥 Download Soal Baru dari Server: ${formData.divisi}`);
                 const docRef = doc(db, "formConfigs", formData.divisi);
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
-                    setDynamicQuestions(docSnap.data().questions || []);
+                    const fetchedQuestions = docSnap.data().questions || [];
+                    setDynamicQuestions(fetchedQuestions);
+
+                    // 3. SIMPAN KE LOCAL STORAGE (Untuk refresh selanjutnya)
+                    localStorage.setItem(CACHE_KEY, JSON.stringify({
+                        data: fetchedQuestions,
+                        timestamp: Date.now()
+                    }));
                 } else {
-                    setDynamicQuestions([]); // Divisi ini belum di-setting admin
+                    setDynamicQuestions([]);
                 }
             } catch (e) {
                 console.error("Gagal load pertanyaan", e);
+                // Fallback: Jika internet mati, coba paksa pakai cache lama (kalau ada)
+                const cachedData = localStorage.getItem(CACHE_KEY);
+                if (cachedData) {
+                    console.log("⚠️ Internet Error. Menggunakan cache lama.");
+                    setDynamicQuestions(JSON.parse(cachedData).data);
+                }
             } finally {
-                // Delay aesthetic biar transisinya kerasa
-                setTimeout(() => setLoadingConfig(false), 600);
+                // Beri sedikit delay biar transisi halus
+                setTimeout(() => setLoadingConfig(false), 300);
             }
         };
 
-        fetchQuestions();
+        fetchQuestionsWithCache();
 
-        // Reset jawaban dinamis saat ganti divisi
+        // Reset jawaban saat ganti divisi (opsional, tergantung kebutuhan)
         setDynamicAnswers({});
-    }, [formData.divisi]);
 
+    }, [formData.divisi]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -72,25 +107,46 @@ export default function Apply() {
         e.preventDefault();
         setSubmitting(true);
 
+        if (!formData.nim || !formData.nama) {
+            alert("Mohon lengkapi Nama dan NIM");
+            setSubmitting(false);
+            return;
+        }
+
         try {
-            await addDoc(collection(db, "applicants"), {
+            const docId = formData.nim.trim(); // Gunakan NIM sebagai ID Dokumen
+            const docRef = doc(db, "applicants", docId);
+
+            // --- STRUKTUR DATA UTAMA ---
+            // Menggabungkan pertanyaan dan jawaban agar mudah dibaca Admin
+            const answersDetails = dynamicQuestions.map(q => ({
+                id: q.id,
+                question: q.text,       // Simpan Teks Pertanyaan (Snapshot)
+                answer: dynamicAnswers[q.id] || "-" // Simpan Jawaban User
+            }));
+
+            await setDoc(docRef, {
                 ...formData,
-
-                // --- PERBAIKAN DISINI ---
-                // Simpan dengan nama key 'dynamicAnswers' agar dashboard bisa baca
-                dynamicAnswers: dynamicAnswers,
-                // ------------------------
-
+                nim: docId,
+                answersDetails: answersDetails, // Array ini yang akan ditampilkan di Dashboard
+                dynamicAnswers: dynamicAnswers, // Backup raw data object
                 status: "pending",
-                createdAt: serverTimestamp(), // Ganti timestamp jadi createdAt biar konsisten sama sorting dashboard
+                createdAt: serverTimestamp(),
+                // Inisialisasi nilai 0 agar chart radar siap dipakai
                 nilai: {
                     speaking: 0, teknis: 0, teamwork: 0, attitude: 0, kreativitas: 0, solving: 0
                 }
             });
+
             setShowSuccess(true);
         } catch (error) {
-            console.error("Error submitting document: ", error);
-            alert("Terjadi kesalahan. Coba lagi.");
+            console.error("Submit Error:", error);
+            if (error.code === 'permission-denied') {
+                alert(`Gagal: NIM ${formData.nim} mungkin sudah terdaftar atau akses ditolak.`);
+            } else {
+                alert("Terjadi kesalahan jaringan. Silakan coba lagi.");
+            }
+        } finally {
             setSubmitting(false);
         }
     };
@@ -101,7 +157,7 @@ export default function Apply() {
 
             <SuccessModal
                 isOpen={showSuccess}
-                onClose={() => window.location.reload()} // Ganti navigate("/") jadi reload biar bersih total
+                onClose={() => window.location.reload()}
                 title="Pendaftaran Berhasil!"
                 message="Data kamu sudah masuk ke sistem kami. Good luck!"
             />
@@ -109,148 +165,91 @@ export default function Apply() {
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                 className="w-full max-w-2xl bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 p-8 md:p-12 relative z-10"
             >
                 <div className="mb-10">
                     <h1 className="text-3xl font-black text-slate-900 mb-2">Join The Team.</h1>
-                    <p className="text-slate-500">Isi formulir di bawah ini dengan jujur dan teliti.</p>
+                    <p className="text-slate-500">Isi formulir di bawah ini dengan jujur.</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-
-                    {/* BAGIAN 1: IDENTITAS UMUM (FIXED) */}
+                    {/* --- BAGIAN IDENTITAS --- */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="md:col-span-2">
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nama Lengkap</label>
-                            <input
-                                type="text" name="nama" required
-                                value={formData.nama} onChange={handleChange}
-                                className="w-full bg-slate-50 border-0 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-slate-300 font-semibold"
-                                placeholder="Cth. Budi Santoso"
-                            />
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nama Lengkap</label>
+                            <input type="text" name="nama" required value={formData.nama} onChange={handleChange} className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-semibold" placeholder="Nama Lengkap" />
                         </div>
-
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Program Studi</label>
-                            <input
-                                type="text" name="prodi" required
-                                value={formData.prodi} onChange={handleChange}
-                                className="w-full bg-slate-50 border-0 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-slate-300"
-                                placeholder="Informatika"
-                            />
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">NIM</label>
+                            <input type="text" name="nim" required value={formData.nim} onChange={handleChange} className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="NIM" />
                         </div>
-
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Angkatan</label>
-                            <input
-                                type="number" name="angkatan" required
-                                value={formData.angkatan} onChange={handleChange}
-                                className="w-full bg-slate-50 border-0 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-slate-300"
-                                placeholder="2023"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">WhatsApp</label>
-                            <input
-                                type="text" name="whatsapp" required
-                                value={formData.whatsapp} onChange={handleChange}
-                                className="w-full bg-slate-50 border-0 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-slate-300"
-                                placeholder="0812..."
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Pilih Divisi</label>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Prodi</label>
                             <div className="relative">
-                                <select
-                                    name="divisi" required
-                                    value={formData.divisi} onChange={handleChange}
-                                    className="w-full bg-slate-50 border-0 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all appearance-none font-bold text-slate-700 cursor-pointer"
-                                >
+                                <select name="prodi" required value={formData.prodi} onChange={handleChange} className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none appearance-none cursor-pointer">
+                                    <option value="" disabled>-- Pilih Prodi --</option>
+                                    <option value="Informatika">Informatika</option>
+                                    <option value="Sistem Informasi">Sistem Informasi</option>
+                                    <option value="Teknologi Informasi">Teknologi Informasi</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Angkatan</label>
+                            <div className="relative">
+                                <select name="angkatan" required value={formData.angkatan} onChange={handleChange} className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none appearance-none cursor-pointer">
+                                    <option value="" disabled>-- Pilih Angkatan --</option>
+                                    <option value="2023">2023</option>
+                                    <option value="2024">2024</option>
+                                    <option value="2025">2025</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">WhatsApp</label>
+                            <input type="text" name="whatsapp" required value={formData.whatsapp} onChange={handleChange} className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="08..." />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Pilih Divisi</label>
+                            <div className="relative">
+                                <select name="divisi" required value={formData.divisi} onChange={handleChange} className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none appearance-none font-bold text-slate-700 cursor-pointer">
                                     <option value="" disabled>-- Pilih Divisi --</option>
                                     <option value="acara">Divisi Acara</option>
                                     <option value="humas">Divisi Humas</option>
                                     <option value="pdd">Divisi PDD</option>
                                     <option value="perkab">Divisi Perkab</option>
                                 </select>
-                                <div className="absolute right-4 top-3.5 pointer-events-none text-slate-400 text-xs">▼</div>
                             </div>
                         </div>
                     </div>
 
                     <div className="border-t border-slate-100 my-4"></div>
 
-                    {/* BAGIAN 2: PERTANYAAN KHUSUS (DYNAMIC) */}
+                    {/* --- BAGIAN PERTANYAAN DINAMIS --- */}
                     <AnimatePresence mode="wait">
                         {loadingConfig ? (
-                            <motion.div
-                                key="loader"
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: "auto" }}
-                                exit={{ opacity: 0, height: 0 }}
-                                className="flex flex-col items-center justify-center py-10"
-                            >
-                                <Loader2 className="animate-spin text-emerald-500 mb-2" size={24} />
-                                <span className="text-xs font-medium text-slate-400">Memuat formulir divisi...</span>
+                            <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex justify-center py-8">
+                                <Loader2 className="animate-spin text-emerald-500" />
                             </motion.div>
                         ) : (
                             formData.divisi && (
-                                <motion.div
-                                    key="questions"
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.5, ease: "easeOut" }}
-                                    className="space-y-6"
-                                >
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <div className="w-1 h-6 bg-emerald-500 rounded-full"></div>
-                                        <h3 className="font-bold text-slate-700">Pertanyaan Khusus {formData.divisi.toUpperCase()}</h3>
-                                    </div>
-
+                                <motion.div key="questions" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                                     {dynamicQuestions.length === 0 ? (
-                                        <p className="text-slate-400 italic text-sm">Tidak ada pertanyaan khusus untuk divisi ini.</p>
+                                        <p className="text-slate-400 italic text-sm text-center">Tidak ada pertanyaan khusus.</p>
                                     ) : (
                                         dynamicQuestions.map((q) => (
-                                            <div key={q.id} className="group">
-                                                <label className="block text-sm font-semibold text-slate-700 mb-2 group-hover:text-emerald-700 transition-colors">
-                                                    {q.text}
-                                                </label>
-
-                                                {q.type === 'scale' ? (
+                                            <div key={q.id}>
+                                                <label className="block text-sm font-semibold text-slate-700 mb-2">{q.text}</label>
+                                                {q.type === 'longtext' ? (
+                                                    <textarea required rows={3} value={dynamicAnswers[q.id] || ""} onChange={(e) => handleDynamicAnswer(q.id, e.target.value)} className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none resize-none" placeholder="Jawaban Anda..." />
+                                                ) : q.type === 'scale' ? (
                                                     <div className="bg-slate-50 p-4 rounded-xl">
-                                                        <div className="flex justify-between text-xs text-slate-400 font-bold mb-2 uppercase">
-                                                            <span>Tidak Yakin</span>
-                                                            <span>Sangat Yakin</span>
-                                                        </div>
-                                                        <input
-                                                            type="range" min="1" max="10" step="1"
-                                                            value={dynamicAnswers[q.id] || 5}
-                                                            onChange={(e) => handleDynamicAnswer(q.id, e.target.value)}
-                                                            className="w-full h-2 bg-slate-200 rounded-lg accent-emerald-600 cursor-pointer"
-                                                        />
-                                                        <div className="text-center font-black text-emerald-600 mt-2 text-lg">
-                                                            {dynamicAnswers[q.id] || 5}/10
-                                                        </div>
+                                                        <div className="flex justify-between text-xs font-bold text-slate-400 mb-2"><span>1</span><span>10</span></div>
+                                                        <input type="range" min="1" max="10" value={dynamicAnswers[q.id] || 5} onChange={(e) => handleDynamicAnswer(q.id, e.target.value)} className="w-full accent-emerald-500" />
+                                                        <div className="text-center font-bold text-emerald-600 mt-1">{dynamicAnswers[q.id] || 5}</div>
                                                     </div>
-                                                ) : q.type === 'longtext' ? (
-                                                    <textarea
-                                                        required
-                                                        rows={4}
-                                                        value={dynamicAnswers[q.id] || ""}
-                                                        onChange={(e) => handleDynamicAnswer(q.id, e.target.value)}
-                                                        className="w-full bg-slate-50 border-0 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-slate-300 resize-none"
-                                                        placeholder="Jelaskan jawabanmu..."
-                                                    />
                                                 ) : (
-                                                    <input
-                                                        type="text" required
-                                                        value={dynamicAnswers[q.id] || ""}
-                                                        onChange={(e) => handleDynamicAnswer(q.id, e.target.value)}
-                                                        className="w-full bg-slate-50 border-0 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-slate-300"
-                                                        placeholder="Jawaban singkat..."
-                                                    />
+                                                    <input type="text" required value={dynamicAnswers[q.id] || ""} onChange={(e) => handleDynamicAnswer(q.id, e.target.value)} className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Jawaban..." />
                                                 )}
                                             </div>
                                         ))
@@ -260,16 +259,9 @@ export default function Apply() {
                         )}
                     </AnimatePresence>
 
-                    {/* SUBMIT BUTTON */}
-                    <motion.button
-                        type="submit"
-                        disabled={submitting || !formData.divisi}
-                        whileHover={{ scale: 1.01 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-emerald-600 shadow-xl shadow-slate-200 disabled:opacity-50 disabled:cursor-not-allowed mt-8 transition-colors"
-                    >
-                        {submitting ? "Mengirim Data..." : "Kirim Pendaftaran"}
-                    </motion.button>
+                    <button type="submit" disabled={submitting || !formData.divisi} className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-emerald-600 transition shadow-xl disabled:opacity-50 mt-6">
+                        {submitting ? "Mengirim..." : "Kirim Pendaftaran"}
+                    </button>
                 </form>
             </motion.div>
         </div>

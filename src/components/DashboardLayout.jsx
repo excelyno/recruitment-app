@@ -15,17 +15,24 @@ export default function DashboardLayout() {
 
     useEffect(() => {
         const init = async () => {
-            // Fake delay minimal 1.5 detik biar loading screen tampil elegan
-            // (Mencegah kedipan cepat yang jelek)
-            await new Promise(r => setTimeout(r, 1500));
-
             const user = auth.currentUser;
             if (user) {
+                // CEK CACHE DULU
+                const cachedRole = localStorage.getItem("user_role");
+                if (cachedRole) {
+                    setUserRole(cachedRole);
+                    setLoading(false); // Langsung tampil tanpa delay buatan!
+                    return;
+                }
+
+                // Kalau cache kosong, baru fetch
                 try {
                     const adminRef = doc(db, "admins", user.uid);
                     const adminSnap = await getDoc(adminRef);
                     if (adminSnap.exists()) {
-                        setUserRole(adminSnap.data().role || "guest");
+                        const role = adminSnap.data().role || "guest";
+                        setUserRole(role);
+                        localStorage.setItem("user_role", role); // Simpan Cache
                     }
                 } catch (e) {
                     console.error("Error role", e);

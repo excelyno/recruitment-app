@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { db, auth } from "../firebase";
-import { collection, getDocs, doc, updateDoc, getDoc, query, where } from "firebase/firestore";
+import { doc, updateDoc, getDoc, collection, getDocs } from "firebase/firestore"; // collection & getDocs masih dipakai untuk FormConfig & Admin check
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import {
@@ -28,6 +28,8 @@ import AdminMonitor from "../components/AdminMonitor";
 import AnimatedBackground from "../components/AnimatedBackground";
 import SuccessModal from "../components/SuccessModal";
 import { getElementAtEvent } from "react-chartjs-2";
+import { useApplicants } from "../context/ApplicantContext";
+
 
 ChartJS.register(
     RadialLinearScale,
@@ -44,14 +46,14 @@ ChartJS.register(
 );
 
 export default function Dashboard() {
-    const [applicants, setApplicants] = useState([]);
+    const { applicants, loading, updateApplicantLocal, getDivisionQuestions } = useApplicants();
     const [selectedApplicant, setSelectedApplicant] = useState(null);
-    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [filterDivisi, setFilterDivisi] = useState("all");
     const [filterStatus, setFilterStatus] = useState("all");
     const [formQuestions, setFormQuestions] = useState([]);
     const [showMonitor, setShowMonitor] = useState(false); // Restore this line
+
 
     // Chart Refs for Interactivity
     const doughnutRef = useRef(null);
@@ -61,8 +63,11 @@ export default function Dashboard() {
     const [userName, setUserName] = useState("Admin");
 
     // Edit Scoring State
+    const [inputScores, setInputScores] = useState({
+        speaking: 0, teknis: 0, teamwork: 0, attitude: 0, kreativitas: 0, solving: 0
+    });
+
     const [isEditing, setIsEditing] = useState(false);
-    const [inputScores, setInputScores] = useState({});
     const [inputNotes, setInputNotes] = useState("");
     const [saving, setSaving] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
@@ -76,97 +81,80 @@ export default function Dashboard() {
     const navigate = useNavigate();
     const categories = ["speaking", "teknis", "teamwork", "attitude", "kreativitas", "solving"];
 
+    // --- EFFECT 1: INITIALIZE ADMIN (Jalan Sekali saat Loading) ---
     useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
+        const fetchAdminProfile = async () => {
             try {
                 const user = auth.currentUser;
                 if (!user) return;
 
-                // --- 1. AMBIL DATA ADMIN & ROLE ---
+                // Ambil data Admin (Nama & Role)
                 const adminRef = doc(db, "admins", user.uid);
                 const adminSnap = await getDoc(adminRef);
 
-                let myRole = "guest";
-                let myName = "Admin";
-
                 if (adminSnap.exists()) {
                     const data = adminSnap.data();
-                    myRole = data.role || "guest";
-                    myName = data.name || "Admin";
-
-                    setUserRole(myRole);
-                    setUserName(myName);
-                }
-
-                // --- 2. AMBIL PELAMAR (SESUAI ROLE) ---
-                let applicantQuery;
-
-                if (myRole === "superadmin") {
-                    // Kalau Superadmin, ambil SEMUA pelamar
-                    applicantQuery = collection(db, "applicants");
-                } else {
-                    // Kalau Admin Divisi (misal: Acara), ambil pelamar divisi itu saja
-                    applicantQuery = query(
-                        collection(db, "applicants"),
-                        where("divisi", "==", myRole) // Filter database langsung
-                    );
-                }
-
-                const querySnapshot = await getDocs(applicantQuery);
-                let dataPelamar = querySnapshot.docs.map(doc => {
-                    const d = doc.data();
-                    return {
-                        id: doc.id,
-                        ...d,
-                        nama: d.nama || "Tanpa Nama",
-                        divisi: d.divisi || "umum",
-                        nilai: d.nilai || { speaking: 0, teknis: 0, teamwork: 0, attitude: 0, kreativitas: 0, solving: 0 },
-                        recruiterNotes: d.recruiterNotes || "",
-                        dynamicAnswers: d.dynamicAnswers || {}
-                    };
-                });
-
-                // Sortir dari yang terbaru
-                dataPelamar.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-                setApplicants(dataPelamar);
-
-                // --- 3. AMBIL CONFIG FORM (FIXED LOGIC) ---
-                // Kita ambil SEMUA config form dan kita tandai (tagging) setiap pertanyaan milik divisi mana.
-                // Ini penting agar Superadmin (atau admin lain) bisa melihat pertanyaan yang BENAR sesuai divisi pelamar.
-
-                try {
-                    // Selalu ambil semua config (agar Superadmin aman saat cek berbagai divisi)
-                    const configSnap = await getDocs(collection(db, "formConfigs"));
-                    let allQuestionsTagged = [];
-
-                    configSnap.forEach(doc => {
-                        const divisionName = doc.id; // Contoh: 'acara', 'pdd'
-                        const d = doc.data();
-
-                        if (d.questions && Array.isArray(d.questions)) {
-                            // PENTING: Tempelkan 'divisionOwner' ke setiap pertanyaan
-                            const tagged = d.questions.map(q => ({
-                                ...q,
-                                divisionOwner: divisionName
-                            }));
-                            allQuestionsTagged = [...allQuestionsTagged, ...tagged];
-                        }
-                    });
-
-                    setFormQuestions(allQuestionsTagged);
-                } catch (e) {
-                    console.error("Form config fetch error:", e);
+                    setUserRole(data.role || "guest");
+                    setUserName(data.name || "Admin");
                 }
             } catch (error) {
-                console.error("Fetch Error:", error);
-            } finally {
-                setLoading(false);
+                console.error("Auth Error:", error);
             }
         };
 
-        fetchData();
-    }, []);
+        fetchAdminProfile();
+    }, []); // Dependency kosong = Jalan sekali saja
+
+
+    // --- LOGIKA BARU: Ambil Master Soal agar urutannya 1, 2, 3... ---
+    useEffect(() => {
+        const fetchDivisionQuestions = async () => {
+            // Cuma jalan kalau ada peserta dipilih & punya divisi
+            if (selectedApplicant?.divisi) {
+                try {
+                    // Ambil config dari database (formConfigs/acara, formConfigs/humas, dll)
+                    const docRef = doc(db, "formConfigs", selectedApplicant.divisi);
+                    const docSnap = await getDoc(docRef);
+
+                    if (docSnap.exists()) {
+                        // Simpan ke state formQuestions yang sudah Anda buat
+                        setFormQuestions(docSnap.data().questions || []);
+                    } else {
+                        setFormQuestions([]);
+                    }
+                } catch (error) {
+                    console.error("Gagal ambil urutan soal:", error);
+                }
+            }
+        };
+
+        fetchDivisionQuestions();
+    }, [selectedApplicant]); // Efek ini jalan setiap ganti peserta
+
+
+    //========================================================================
+
+    // --- EFFECT 2: LOAD SOAL OTOMATIS (Jalan saat Ganti Peserta) ---
+    useEffect(() => {
+        const loadQuestionsSmartly = async () => {
+            // Cek 1: Apakah ada peserta dipilih?
+            // Cek 2: Apakah peserta punya divisi? (Penting!)
+            if (selectedApplicant && selectedApplicant.divisi) {
+
+                // --- TUNING POINT: Pakai Cache Context ---
+                // Fungsi ini otomatis hemat kuota (baca penjelasan di bawah)
+                const questions = await getDivisionQuestions(selectedApplicant.divisi);
+
+                setFormQuestions(questions);
+            } else {
+                setFormQuestions([]);
+            }
+        };
+
+        loadQuestionsSmartly();
+    }, [selectedApplicant, getDivisionQuestions]);
+    //========================================================================
+
     const filteredApplicants = useMemo(() => {
         let filtered = applicants;
         if (userRole && userRole !== 'superadmin') filtered = filtered.filter(app => app.divisi === userRole);
@@ -201,59 +189,69 @@ export default function Dashboard() {
         return { total, pending, accepted, rejected, doughnutLabels, doughnutValues, doughnutColors, avgScores };
     }, [filteredApplicants, applicants]); // Add applicants dependancy if we switch logic
 
-    const handleSelect = (app) => {
-        setSelectedApplicant(app);
-        setInputScores({ ...app.nilai });
-        setInputNotes(app.recruiterNotes || "");
-        setIsEditing(false);
+
+    const handleScoreChange = (category, value) => {
+        setInputScores(prev => ({
+            ...prev,
+            [category]: parseInt(value) || 0 // Pastikan value di-parse ke angka
+        }));
     };
+
+    //save
 
     const handleSave = async () => {
         setSaving(true);
         try {
+            // Update ke Firebase
             const appRef = doc(db, "applicants", selectedApplicant.id);
             const newData = { nilai: inputScores, recruiterNotes: inputNotes };
             await updateDoc(appRef, newData);
 
-            const updatedApplicants = applicants.map(p => p.id === selectedApplicant.id ? { ...p, ...newData } : p);
-            setApplicants(updatedApplicants);
+
+            updateApplicantLocal(selectedApplicant.id, newData); // <--- Update ke Gudang Pusat
+
+            // Update UI Popup (biar realtime di modal)
             setSelectedApplicant(prev => ({ ...prev, ...newData }));
+
             setIsEditing(false);
             setShowSuccess(true);
         } catch (e) { alert("Failed to save."); }
         finally { setSaving(false); }
     };
-    // --- UPDATE LOGIC (Copy dari sini) ---
+    // 1. UPDATE handleSelect: Agar saat dibuka, nilai & notes langsung terisi
+    const handleSelect = (app) => {
+        setSelectedApplicant(app);
+        // Masukkan data database ke state input agar siap diedit
+        setInputScores(app.nilai || { speaking: 0, teknis: 0, teamwork: 0, attitude: 0, kreativitas: 0, solving: 0 });
+        setInputNotes(app.recruiterNotes || "");
+    };
+
+    // 2. UPDATE updateStatus: Simpan Status + Nilai + Notes sekaligus
     const updateStatus = async (e, id, newStatus) => {
-        // Mencegah event bubbling (biar gak nge-klik parent element)
         if (e) e.stopPropagation();
+        if (!id) return;
 
-        // 1. LOGIKA UI: Tutup Panel Statistik dulu biar lega
-        setSelectedApplicant(null);
-
-        // 2. LOGIKA MODAL: Siapkan pesan sukses
-        const isAccepted = newStatus === 'accepted';
-        setModalConfig({
-            isOpen: true,
-            title: isAccepted ? "Pelamar Diterima! 🎉" : "Pelamar Ditolak",
-            message: isAccepted
-                ? "Status berhasil diubah menjadi Accepted. Data tersimpan."
-                : "Status berhasil diubah menjadi Rejected. Pastikan notes sudah aman."
-        });
-
-        // 3. LOGIKA DATABASE: Kirim data ke Firebase
         try {
-            // Update List Pelamar di layar (biar instan berubah warnanya)
-            setApplicants(prev => prev.map(app =>
-                app.id === id ? { ...app, status: newStatus } : app
-            ));
+            const applicantRef = doc(db, "applicants", id);
 
-            // Update data asli di Firebase Firestore
-            const docRef = doc(db, "applicants", id);
-            await updateDoc(docRef, { status: newStatus });
+            // Data paket lengkap yang akan disimpan
+            const updateData = {
+                status: newStatus,
+                nilai: inputScores,       // Ambil dari slider terakhir
+                recruiterNotes: inputNotes // Ambil dari text area terakhir
+            };
+
+            // Kirim ke Firebase
+            await updateDoc(applicantRef, updateData);
+
+            // Update tampilan lokal (Context)
+            updateApplicantLocal(id, updateData);
+
+            // Tutup Slide Over
+            setSelectedApplicant(null);
+
         } catch (error) {
-            console.error("Gagal update status:", error);
-            alert("Yah, gagal update status. Cek koneksi internet.");
+            console.error("Error updating status:", error);
         }
     };
     // --- Selesai Copy ---
@@ -462,7 +460,11 @@ export default function Dashboard() {
                                     >
                                         <td className="p-5 pl-8">
                                             <div className="font-bold text-slate-700 text-sm">{app.nama}</div>
-                                            <div className="text-[10px] text-slate-400">{app.prodi}</div>
+                                            <div className="text-[10px] text-slate-500 font-medium flex gap-1 items-center mt-0.5">
+                                                <span className="font-mono text-slate-600 bg-slate-100 px-1 rounded">{app.nim}</span>
+                                                <span className="text-slate-300">•</span>
+                                                <span>{app.prodi}</span>
+                                            </div>
                                         </td>
                                         <td className="p-5">
                                             <span className="px-2 py-1 bg-white/60 rounded text-[10px] font-bold uppercase text-slate-500 border border-slate-100">{app.divisi}</span>
@@ -499,92 +501,161 @@ export default function Dashboard() {
                             </div>
 
                             <div className="p-6 space-y-6 flex-1">
-                                <div className="bg-slate-50 rounded-2xl p-4 flex justify-center border border-slate-100">
-                                    <Radar data={{
-                                        labels: categories.map(c => c.charAt(0).toUpperCase() + c.slice(1)),
-                                        datasets: [{
-                                            label: 'Stats',
-                                            data: categories.map(c => selectedApplicant.nilai[c]),
-                                            backgroundColor: 'rgba(82, 143, 82, 0.2)',
-                                            borderColor: '#528f52',
-                                            pointBackgroundColor: '#fff',
-                                        }]
-                                    }} options={{ scales: { r: { ticks: { display: false }, grid: { color: '#e2e8f0' } } }, plugins: { legend: { display: false } } }} />
+
+                                <div className="h-[300px] w-full relative flex justify-center items-center">
+                                    <Radar
+                                        data={{
+                                            labels: categories.map(c => c.charAt(0).toUpperCase() + c.slice(1)),
+                                            datasets: [{
+                                                label: 'Stats',
+                                                data: categories.map(c => inputScores[c] || 0),
+                                                backgroundColor: 'rgba(82, 143, 82, 0.2)',
+                                                borderColor: '#528f52',
+
+                                                // --- PENGATURAN TITIK (POINT) ---
+                                                pointBackgroundColor: '#fff', // Warna isi titik (Putih)
+                                                pointBorderColor: '#528f52',  // Warna garis pinggir titik (Hijau)
+                                                pointBorderWidth: 2,          // Ketebalan garis pinggir titik
+
+                                                pointRadius: 6,       // <--- UKURAN TITIK (Default biasanya 3, ganti ke 6 atau 8)
+                                                pointHoverRadius: 8,  // <--- UKURAN SAAT MOUSE DIARAHKAN (Hover)
+                                                // --------------------------------
+
+                                                borderWidth: 2,
+                                            }]
+                                        }}
+                                        options={{
+                                            responsive: true,
+                                            maintainAspectRatio: false,
+                                            scales: {
+                                                r: {
+                                                    min: 0,
+                                                    max: 100,
+                                                    beginAtZero: true,
+                                                    ticks: { display: false, stepSize: 20 },
+                                                    grid: { color: '#e2e8f0' },
+                                                    pointLabels: {
+                                                        font: { size: 11, weight: 'bold' }, // Ukuran teks label (Speaking, Teknis, dll)
+                                                        color: '#64748b'
+                                                    }
+                                                }
+                                            },
+                                            plugins: { legend: { display: false } }
+                                        }}
+                                    />
                                 </div>
 
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-center">
-                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Scores</h4>
-                                        <button onClick={() => isEditing ? handleSave() : setIsEditing(true)} className="text-xs font-bold text-sage-600 bg-sage-100 px-3 py-1 rounded-lg">
-                                            {isEditing ? (saving ? "Saving..." : "Done") : "Edit"}
-                                        </button>
-                                    </div>
-                                    {categories.map(cat => (
-                                        <div key={cat} className="space-y-1">
-                                            <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase">
-                                                <span>{cat}</span>
-                                                <span>{isEditing ? inputScores[cat] : selectedApplicant.nilai[cat]}</span>
-                                            </div>
-                                            {isEditing ? (
-                                                <input type="range" min="0" max="100" value={inputScores[cat] || 0} onChange={e => setInputScores({ ...inputScores, [cat]: parseInt(e.target.value) || 0 })} className="w-full h-1.5 bg-slate-200 rounded-lg accent-sage-600" />
-                                            ) : (
-                                                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                                                    <motion.div initial={{ width: 0 }} animate={{ width: `${selectedApplicant.nilai[cat]}%` }} className="h-full bg-sage-500 rounded-full" />
-                                                </div>
-                                            )}
+                                <div className="space-y-6 pb-24"> {/* Tambah padding bawah agar tidak tertutup tombol */}
+
+                                    {/* --- BAGIAN SCORING (Selalu Aktif) --- */}
+                                    <div>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                <Activity size={14} /> Scoring
+                                            </h4>
+                                            <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-1 rounded border border-slate-200">
+                                                Auto-save on decision
+                                            </span>
                                         </div>
-                                    ))}
-                                </div>
 
-                                <div>
-                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Additional Info ({selectedApplicant.divisi})</h4>
+                                        <div className="space-y-4">
+                                            {categories.map(cat => (
+                                                <div key={cat} className="space-y-2">
+                                                    <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase">
+                                                        <span>{cat}</span>
+                                                        {/* Menampilkan angka skor real-time */}
+                                                        <span className={`px-2 py-0.5 rounded text-white ${(inputScores[cat] || 0) > 75 ? 'bg-emerald-500' :
+                                                            (inputScores[cat] || 0) > 50 ? 'bg-yellow-500' : 'bg-slate-400'
+                                                            }`}>
+                                                            {inputScores[cat] || 0}
+                                                        </span>
+                                                    </div>
 
-                                    {/* Cek apakah ada pertanyaan untuk divisi ini */}
-                                    {formQuestions.some(q => q.divisionOwner === selectedApplicant.divisi) ? (
-                                        <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100 space-y-4">
-                                            {formQuestions
-                                                // FILTER: Cuma ambil soal punya divisi si pelamar (misal: 'acara')
-                                                .filter(q => q.divisionOwner === selectedApplicant.divisi)
-                                                .map((q, index) => (
-                                                    <div key={index} className="border-b border-slate-200 last:border-0 pb-2 last:pb-0">
-                                                        {/* FIX: Pakai q.text sesuai screenshot Firebase */}
-                                                        <p className="text-xs font-bold text-slate-700 mb-1">
-                                                            {q.text}
-                                                        </p>
+                                                    {/* Slider Selalu Muncul (Tanpa isEditing) */}
+                                                    <input
+                                                        type="range"
+                                                        min="0"
+                                                        max="100"
+                                                        value={inputScores[cat] || 0}
+                                                        onChange={e => setInputScores({ ...inputScores, [cat]: parseInt(e.target.value) || 0 })}
+                                                        className="w-full h-2 bg-slate-200 rounded-lg accent-sage-600 cursor-pointer hover:accent-sage-500 transition-all"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
 
-                                                        {/* Jawaban User */}
-                                                        <div className="flex items-start gap-2">
-                                                            <div className="mt-1.5 min-w-[6px] h-1.5 rounded-full bg-sage-500"></div>
-                                                            <p className="text-sm font-medium text-slate-600 bg-white p-2 rounded-lg border border-slate-200 w-full">
-                                                                {selectedApplicant.dynamicAnswers?.[q.id] ||
-                                                                    <span className="italic text-slate-400 text-xs">Belum dijawab</span>}
-                                                            </p>
+                                    {/* --- BAGIAN SUBMISSION DETAILS (Pertanyaan & Jawaban) --- */}
+                                    <div className="mt-6 space-y-3">
+                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-3">
+                                            <Edit3 size={14} /> Submission Details
+                                        </h4>
+
+                                        {formQuestions.length > 0 ? (
+                                            formQuestions.map((q, idx) => {
+                                                const detailAnswer = selectedApplicant.answersDetails?.find(a => a.question === q.text || a.id === q.id);
+                                                const legacyAnswer = selectedApplicant.dynamicAnswers?.[q.id];
+                                                const finalAnswer = detailAnswer?.answer || legacyAnswer || "-";
+
+                                                return (
+                                                    <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                                        <div className="flex justify-between items-start mb-1.5">
+                                                            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide leading-tight">
+                                                                <span className="text-emerald-600 mr-1">{idx + 1}.</span>
+                                                                {q.text}
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-sm font-medium text-slate-700 whitespace-pre-wrap leading-relaxed ml-3 border-l-2 border-slate-200 pl-3">
+                                                            {finalAnswer}
                                                         </div>
                                                     </div>
+                                                );
+                                            })
+                                        ) : (
+                                            <div className="text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                                <p className="text-slate-400 italic text-xs">
+                                                    {selectedApplicant.answersDetails ? "Menampilkan data tersimpan (Mode Fallback)" : "Memuat pertanyaan..."}
+                                                </p>
+                                                {/* Fallback Data */}
+                                                {selectedApplicant.answersDetails?.map((item, idx) => (
+                                                    <div key={idx} className="mt-2 text-left bg-white p-2 rounded border text-xs text-slate-500">
+                                                        {item.question}: <span className="text-slate-800">{item.answer}</span>
+                                                    </div>
                                                 ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-lg border border-dashed border-slate-300">
-                                            Tidak ada pertanyaan khusus untuk divisi ini di database.
-                                        </p>
-                                    )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* --- BAGIAN NOTES (Selalu Aktif) --- */}
+                                    <div>
+                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                            <Edit3 size={14} /> Recruiter Notes
+                                        </h4>
+                                        <textarea
+                                            value={inputNotes}
+                                            onChange={e => setInputNotes(e.target.value)}
+                                            className="w-full p-3 border border-slate-200 rounded-xl text-xs font-medium text-slate-600 focus:border-sage-500 focus:ring-1 focus:ring-sage-200 outline-none h-32 resize-none bg-slate-50 focus:bg-white transition-all placeholder:text-slate-400"
+                                            placeholder="Tulis alasan diterima/ditolak atau catatan wawancara di sini..."
+                                        />
+                                    </div>
+
                                 </div>
 
-                                <div>
-                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Notes</h4>
-                                    {isEditing ? (
-                                        <textarea value={inputNotes} onChange={e => setInputNotes(e.target.value)} className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:border-sage-500 outline-none h-24 resize-none bg-white" placeholder="Write something..." />
-                                    ) : (
-                                        <div className="text-sm text-slate-600 bg-slate-50/50 p-4 rounded-xl border border-slate-100 italic">
-                                            {selectedApplicant.recruiterNotes || "No notes yet."}
-                                        </div>
-                                    )}
+                                {/* --- ACTION BUTTONS (Sticky Bottom) --- */}
+                                <div className="p-6 border-t border-slate-100 grid grid-cols-2 gap-3 sticky bottom-0 bg-white/95 backdrop-blur-sm z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                                    <button
+                                        onClick={(e) => updateStatus(e, selectedApplicant.id, 'rejected')}
+                                        className="py-3 rounded-xl bg-rose-50 text-rose-600 font-bold text-xs hover:bg-rose-100 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 border border-rose-100"
+                                    >
+                                        Reject & Save
+                                    </button>
+                                    <button
+                                        onClick={(e) => updateStatus(e, selectedApplicant.id, 'accepted')}
+                                        className="py-3 rounded-xl bg-sage-600 text-white font-bold text-xs hover:bg-sage-700 hover:shadow-lg hover:shadow-sage-200 hover:-translate-y-0.5 transition-all duration-200"
+                                    >
+                                        Accept & Save
+                                    </button>
                                 </div>
-                            </div>
-
-                            <div className="p-6 border-t border-slate-100 grid grid-cols-2 gap-3 sticky bottom-0 bg-white/80">
-                                <button onClick={() => updateStatus(null, selectedApplicant.id, 'rejected')} className="py-3 rounded-xl bg-rose-50 text-rose-600 font-bold text-xs hover:bg-rose-100 transition">Reject</button>
-                                <button onClick={() => updateStatus(null, selectedApplicant.id, 'accepted')} className="py-3 rounded-xl bg-sage-600 text-white font-bold text-xs hover:bg-sage-700 transition shadow-lg shadow-sage-200">Accept</button>
                             </div>
                         </motion.div>
                     </>

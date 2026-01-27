@@ -1,51 +1,40 @@
-import { useEffect, useState } from "react";
-import { db, auth } from "../firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { useOutletContext } from "react-router-dom";
+import { useApplicants } from "../context/ApplicantContext"; // 1. Import Context
 
 export default function DivisionList() {
     const { userRole } = useOutletContext();
-    const [applicants, setApplicants] = useState([]);
-    const [loading, setLoading] = useState(true);
+
+    // 2. Ambil data dari Gudang Pusat (Context)
+    const { applicants, loading } = useApplicants();
+
     const [activeTab, setActiveTab] = useState("accepted");
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const querySnapshot = await getDocs(collection(db, "applicants"));
-                let data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // 3. Logic Filter: Dilakukan di Client Side (Hemat Kuota)
+    // Tidak perlu useEffect + getDocs lagi!
+    const filteredData = applicants.filter(app => {
+        // A. Filter berdasarkan Role (Divisi)
+        // Jika Superadmin -> Lihat semua. Jika Admin Divisi -> Lihat divisinya saja.
+        const matchRole = (userRole && userRole !== 'superadmin')
+            ? app.divisi === userRole
+            : true;
 
-                // Filter by role (if not superadmin, though superadmin might want to see specific divisions too, but typically use GlobalList)
-                // Assuming this page is mostly for non-superadmins or "My Division" view
-                if (userRole && userRole !== 'superadmin') {
-                    data = data.filter(app => app.divisi === userRole);
-                }
-                // If superadmin visits this page, maybe show nothing or let them pick? 
-                // The prompt implies "list where list yang keterima itu siapa aja dan yang ketolak dan ke pending"
-                // We will default to showing all if superadmin, or filter by a dropdown later if needed.
-                // For now, if superadmin, showing ALL sorted by status makes sense or just reuse GlobalAcceptedList logic but for all statuses.
+        // B. Filter berdasarkan Tab Status (Accepted/Rejected/Pending)
+        const matchStatus = app.status === activeTab;
 
-                setApplicants(data);
-            } catch (e) {
-                console.error("Error", e);
-            } finally {
-                setLoading(false);
-            }
-        };
-        if (userRole) fetchData();
-    }, [userRole]);
+        return matchRole && matchStatus;
+    });
 
-    const filteredData = applicants.filter(app => app.status === activeTab);
-
-    if (loading) return <div className="text-center py-20 text-slate-400">Loading...</div>;
+    if (loading) return <div className="text-center py-20 text-slate-400">Loading data...</div>;
 
     return (
         <div className="space-y-6">
             <div>
                 <h1 className="text-2xl font-bold text-slate-800">Division List</h1>
-                <p className="text-slate-500 text-sm">Manage applicants for <span className="font-bold uppercase text-sage-600">{userRole}</span>.</p>
+                <p className="text-slate-500 text-sm">
+                    Manage applicants for <span className="font-bold uppercase text-sage-600">{userRole}</span>.
+                </p>
             </div>
 
             {/* Tabs */}
@@ -55,8 +44,8 @@ export default function DivisionList() {
                         key={tab}
                         onClick={() => setActiveTab(tab)}
                         className={`px-6 py-2 rounded-lg text-sm font-bold capitalize transition-all ${activeTab === tab
-                                ? 'bg-sage-600 text-white shadow-md'
-                                : 'text-slate-500 hover:bg-slate-50'
+                            ? 'bg-sage-600 text-white shadow-md'
+                            : 'text-slate-500 hover:bg-slate-50'
                             }`}
                     >
                         {tab}
@@ -94,12 +83,13 @@ export default function DivisionList() {
                                         </a>
                                     </td>
                                     <td className="p-6 text-center font-bold text-slate-700">
-                                        {Math.round(Object.values(app.nilai || {}).reduce((a, b) => a + parseInt(b), 0) / 6)}
+                                        {/* Hitung Rata-rata Nilai (Safe Check jika nilai null) */}
+                                        {Math.round(Object.values(app.nilai || {}).reduce((a, b) => a + (parseInt(b) || 0), 0) / 6)}
                                     </td>
                                     <td className="p-6 text-center">
                                         <span className={`px-3 py-1 rounded-full text-[10px] uppercase font-bold ${app.status === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
-                                                app.status === 'rejected' ? 'bg-rose-100 text-rose-700' :
-                                                    'bg-amber-100 text-amber-700'
+                                            app.status === 'rejected' ? 'bg-rose-100 text-rose-700' :
+                                                'bg-amber-100 text-amber-700'
                                             }`}>
                                             {app.status}
                                         </span>

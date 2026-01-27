@@ -119,7 +119,7 @@ export default function Sidebar({ userRole = "guest", mobileOpen, setMobileOpen 
     return (
         <>
             {/* --- DESKTOP SIDEBAR (Static) --- */}
-            <aside className="hidden md:block w-72 h-screen sticky top-0 z-30 shrink-0">
+            <aside className="hidden md:block w-50 h-screen sticky top-0 z-30 shrink-0">
                 <SidebarContent />
             </aside>
 
