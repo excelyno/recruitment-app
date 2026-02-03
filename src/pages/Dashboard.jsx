@@ -22,10 +22,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
     Search, LogOut, Download, Filter,
     CheckCircle2, XCircle, Clock, Users,
-    Edit3, X, PieChart, Activity
+    Edit3, X, PieChart, Activity, RefreshCw
 } from "lucide-react";
-import AdminMonitor from "../components/AdminMonitor";
-import AnimatedBackground from "../components/AnimatedBackground";
 import SuccessModal from "../components/SuccessModal";
 import { getElementAtEvent } from "react-chartjs-2";
 import { useApplicants } from "../context/ApplicantContext";
@@ -46,7 +44,16 @@ ChartJS.register(
 );
 
 export default function Dashboard() {
-    const { applicants, loading, updateApplicantLocal, getDivisionQuestions } = useApplicants();
+    const { applicants, loading, updateApplicantLocal, getDivisionQuestions, fetchApplicants, adminProfile } = useApplicants();
+    const [isSyncing, setIsSyncing] = useState(false);
+
+    const handleManualSync = async () => {
+        setIsSyncing(true);
+        if (fetchApplicants) {
+            await fetchApplicants();
+        }
+        setTimeout(() => setIsSyncing(false), 800);
+    };
     const [selectedApplicant, setSelectedApplicant] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [filterDivisi, setFilterDivisi] = useState("all");
@@ -351,9 +358,37 @@ export default function Dashboard() {
                 title={modalConfig.title}
                 message={modalConfig.message}
             />
-            <AdminMonitor isOpen={showMonitor} onClose={() => setShowMonitor(false)} allApplicants={applicants} />
 
             <div className="space-y-8">
+
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-black text-slate-800">
+                            Halo, {adminProfile?.name || 'Admin'} 👋
+                        </h1>
+                        <p className="text-slate-500 font-medium">
+                            Overview Data Rekrutmen
+                        </p>
+                    </div>
+
+                    {/* <button
+                        onClick={handleManualSync}
+                        disabled={isSyncing}
+                        className="flex items-center gap-3 px-5 py-3 bg-white border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 hover:border-emerald-200 transition-all group active:scale-95 disabled:opacity-70"
+                    >
+                        <motion.div
+                            animate={{ rotate: isSyncing ? 360 : 0 }}
+                            transition={{ repeat: isSyncing ? Infinity : 0, duration: 1, ease: "linear" }}
+                        >
+                            <RefreshCw size={20} className={isSyncing ? "text-emerald-600" : "text-slate-400 group-hover:text-emerald-600"} />
+                        </motion.div>
+                        <span className="font-bold text-slate-600 group-hover:text-emerald-700">
+                            {isSyncing ? "Menyinkronkan..." : "Sync Data"}
+                        </span>
+                    </button> */}
+                </div>
+
+
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[

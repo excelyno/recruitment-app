@@ -9,9 +9,12 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import SuccessModal from "../components/SuccessModal";
 import AnimatedBackground from "../components/AnimatedBackground";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 
 export default function Apply() {
+    // --- GANTI URL INI DENGAN URL DARI LANGKAH 2 TADI ---
+    const GOOGLE_SCRIPT_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL;
+
     const [formData, setFormData] = useState({
         nama: "",
         nim: "",
@@ -26,10 +29,12 @@ export default function Apply() {
     const [loadingConfig, setLoadingConfig] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+    const [toast, setToast] = useState({ show: false, message: "", type: "error" });
 
-    // --- LOGIC BARU: FETCH SOAL DENGAN CACHE LOCALSTORAGE ---
+
+
+    // --- LOGIC FETCH SOAL (TETAP SAMA SEPERTI SEBELUMNYA) ---
     useEffect(() => {
-        // Reset jika divisi dikosongkan
         if (!formData.divisi) {
             setDynamicQuestions([]);
             return;
@@ -38,35 +43,26 @@ export default function Apply() {
         const fetchQuestionsWithCache = async () => {
             setLoadingConfig(true);
             const CACHE_KEY = `form_cache_${formData.divisi}`;
-            const CACHE_DURATION = 60 * 60 * 1000; // 1 JAM (Durasi Cache)
-
+            const CACHE_DURATION = 60 * 60 * 1000;
+            // const CACHE_DURATION = 0; HANYA UNTUK DEV MODE. JANGAN DIOTAK ATIK
             try {
-                // 1. CEK LOCAL STORAGE DULU (Offline First)
                 const cachedData = localStorage.getItem(CACHE_KEY);
-
                 if (cachedData) {
                     const { data, timestamp } = JSON.parse(cachedData);
                     const now = Date.now();
-
-                    // Cek Umur Data: Kalau masih fresh (< 1 jam), pakai ini!
                     if (now - timestamp < CACHE_DURATION) {
-                        console.log(`⚡ Menggunakan Soal dari Cache: ${formData.divisi}`);
                         setDynamicQuestions(data);
                         setLoadingConfig(false);
-                        return; // STOP DISINI, TIDAK PERLU KE FIREBASE
+                        return;
                     }
                 }
 
-                // 2. JIKA CACHE KOSONG / BASI -> DOWNLOAD BARU
-                console.log(`🔥 Download Soal Baru dari Server: ${formData.divisi}`);
                 const docRef = doc(db, "formConfigs", formData.divisi);
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
                     const fetchedQuestions = docSnap.data().questions || [];
                     setDynamicQuestions(fetchedQuestions);
-
-                    // 3. SIMPAN KE LOCAL STORAGE (Untuk refresh selanjutnya)
                     localStorage.setItem(CACHE_KEY, JSON.stringify({
                         data: fetchedQuestions,
                         timestamp: Date.now()
@@ -76,23 +72,15 @@ export default function Apply() {
                 }
             } catch (e) {
                 console.error("Gagal load pertanyaan", e);
-                // Fallback: Jika internet mati, coba paksa pakai cache lama (kalau ada)
                 const cachedData = localStorage.getItem(CACHE_KEY);
-                if (cachedData) {
-                    console.log("⚠️ Internet Error. Menggunakan cache lama.");
-                    setDynamicQuestions(JSON.parse(cachedData).data);
-                }
+                if (cachedData) setDynamicQuestions(JSON.parse(cachedData).data);
             } finally {
-                // Beri sedikit delay biar transisi halus
                 setTimeout(() => setLoadingConfig(false), 300);
             }
         };
 
         fetchQuestionsWithCache();
-
-        // Reset jawaban saat ganti divisi (opsional, tergantung kebutuhan)
         setDynamicAnswers({});
-
     }, [formData.divisi]);
 
     const handleChange = (e) => {
@@ -103,48 +91,97 @@ export default function Apply() {
         setDynamicAnswers(prev => ({ ...prev, [id]: value }));
     };
 
+    // --- FUNGSI BARU: KIRIM KE GOOGLE SHEETS ---
+    const submitToGoogleSheets = async (finalData) => {
+        try {
+            // Kita pakai mode 'no-cors' karena Google Script tidak mengizinkan akses CORS standar dari browser.
+            // Konsekuensinya: Kita tidak bisa membaca respons JSON 'success', tapi data tetap terkirim.
+            await fetch(GOOGLE_SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(finalData),
+            });
+            console.log("✅ Data sent to Google Sheets");
+        } catch (error) {
+            console.error("❌ Failed sending to Sheets:", error);
+            // Kita biarkan error ini silent, karena yang penting data masuk Firestore dulu.
+        }
+    };
+
+    /// JIKALAU ORANGNYA GA BENER NGISI WHATSAPP
+    // Helper function untuk memunculkan toast lalu hilang otomatis
+    const showToast = (message, type = "error") => {
+        setToast({ show: true, message, type });
+        // Hilang otomatis setelah 3 detik
+        setTimeout(() => setToast(prev => ({ ...prev, show: false })), 3000);
+    };
+
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setSubmitting(true);
 
         if (!formData.nim || !formData.nama) {
-            alert("Mohon lengkapi Nama dan NIM");
+            // GANTI ALERT LAMA
+            showToast("Mohon lengkapi Nama dan NIM dulu ya!", "error");
+            setSubmitting(false);
+            return;
+        }
+
+        // VALIDASI WHATSAPP
+        if (formData.whatsapp.length < 10) {
+            // GANTI ALERT LAMA
+            showToast("Nomor WhatsApp kurang lengkap (min. 10 angka)", "error");
             setSubmitting(false);
             return;
         }
 
         try {
-            const docId = formData.nim.trim(); // Gunakan NIM sebagai ID Dokumen
+            const docId = formData.nim.trim();
             const docRef = doc(db, "applicants", docId);
 
-            // --- STRUKTUR DATA UTAMA ---
-            // Menggabungkan pertanyaan dan jawaban agar mudah dibaca Admin
+            // Persiapan Data
             const answersDetails = dynamicQuestions.map(q => ({
                 id: q.id,
-                question: q.text,       // Simpan Teks Pertanyaan (Snapshot)
-                answer: dynamicAnswers[q.id] || "-" // Simpan Jawaban User
+                question: q.text,
+                answer: dynamicAnswers[q.id] || "-"
             }));
 
-            await setDoc(docRef, {
+            const finalPayload = {
                 ...formData,
                 nim: docId,
-                answersDetails: answersDetails, // Array ini yang akan ditampilkan di Dashboard
-                dynamicAnswers: dynamicAnswers, // Backup raw data object
+                answersDetails: answersDetails,
+                dynamicAnswers: dynamicAnswers,
                 status: "pending",
-                createdAt: serverTimestamp(),
-                // Inisialisasi nilai 0 agar chart radar siap dipakai
+                createdAt: serverTimestamp(), // Ini untuk Firestore
                 nilai: {
                     speaking: 0, teknis: 0, teamwork: 0, attitude: 0, kreativitas: 0, solving: 0
                 }
+            };
+
+            // 1. KIRIM KE FIREBASE (UTAMA)
+            await setDoc(docRef, finalPayload);
+
+            // 2. KIRIM KE GOOGLE SHEETS (BACKUP)
+            // Kita kirim versi payload yang aman untuk JSON (tanpa serverTimestamp object)
+            // 2. KIRIM KE GOOGLE SHEETS (BACKUP)
+            // Hapus 'await' agar user tidak perlu menunggu proses ini selesai
+            submitToGoogleSheets({
+                ...finalPayload,
+                createdAt: new Date().toISOString()
             });
 
             setShowSuccess(true);
         } catch (error) {
             console.error("Submit Error:", error);
             if (error.code === 'permission-denied') {
-                alert(`Gagal: NIM ${formData.nim} mungkin sudah terdaftar atau akses ditolak.`);
+                // GANTI ALERT LAMA
+                showToast(`Ups! NIM ${formData.nim} sudah terdaftar.`, "error");
             } else {
-                alert("Terjadi kesalahan jaringan. Silakan coba lagi.");
+                showToast("Gagal terhubung ke server. Coba lagi.", "error");
             }
         } finally {
             setSubmitting(false);
@@ -159,8 +196,29 @@ export default function Apply() {
                 isOpen={showSuccess}
                 onClose={() => window.location.reload()}
                 title="Pendaftaran Berhasil!"
-                message="Data kamu sudah masuk ke sistem kami. Good luck!"
+                message="Data kamu sudah masuk. Good luck!"
             />
+
+            <AnimatePresence>
+                {toast.show && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -50, x: "-50%" }}
+                        animate={{ opacity: 1, y: 0, x: "-50%" }}
+                        exit={{ opacity: 0, y: -50, x: "-50%" }}
+                        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                        className="fixed top-6 left-1/2 z-50 flex items-center gap-3 px-6 py-4 bg-white/90 backdrop-blur-md border border-red-100 shadow-2xl rounded-2xl"
+                    >
+                        <div className="bg-red-100 p-2 rounded-full text-red-500">
+                            {/* Pastikan AlertCircle sudah diimport di atas */}
+                            <AlertCircle size={20} />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-sm font-bold text-slate-800">Periksa Lagi</span>
+                            <span className="text-xs font-medium text-slate-500">{toast.message}</span>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -173,7 +231,9 @@ export default function Apply() {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* --- BAGIAN IDENTITAS --- */}
+                    {/* ... (BAGIAN FORM INPUT SAMA PERSIS SEPERTI SEBELUMNYA) ... */}
+                    {/* Copy paste saja bagian input form dari kode sebelumnya karena tidak ada perubahan di UI */}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="md:col-span-2">
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nama Lengkap</label>
@@ -207,7 +267,17 @@ export default function Apply() {
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">WhatsApp</label>
-                            <input type="text" name="whatsapp" required value={formData.whatsapp} onChange={handleChange} className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="08..." />
+                            <input
+                                type="tel"               // Ubah jadi tel
+                                inputMode="numeric"      // Paksa keyboard angka
+                                pattern="[0-9]*"         // Pola validasi HTML
+                                name="whatsapp"
+                                required
+                                value={formData.whatsapp}
+                                onChange={handleChange}
+                                className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                                placeholder="08..."
+                            />
                         </div>
                         <div className="md:col-span-2">
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Pilih Divisi</label>
@@ -225,7 +295,6 @@ export default function Apply() {
 
                     <div className="border-t border-slate-100 my-4"></div>
 
-                    {/* --- BAGIAN PERTANYAAN DINAMIS --- */}
                     <AnimatePresence mode="wait">
                         {loadingConfig ? (
                             <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex justify-center py-8">

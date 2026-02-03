@@ -23,13 +23,7 @@ export default function Sidebar({ userRole = "guest", mobileOpen, setMobileOpen 
             icon: <LayoutDashboard size={20} />,
             roles: ["all"]
         },
-        // --- Super Admin Menu ---
-        {
-            to: "/admin-management",
-            label: "Kelola Admin",
-            icon: <UserCog size={20} />,
-            roles: ["superadmin"]
-        },
+        // orang orang yang keterima coy
         {
             to: "/global-accepted",
             label: "List Diterima",

@@ -1,70 +1,129 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import { db } from "../firebase";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { db, auth } from "../firebase";
 import { collection, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
 
 const ApplicantContext = createContext();
 
 export function ApplicantProvider({ children }) {
-    // --- STATE UTAMA ---
+    // ==========================================
+    // 1. STATE MANAGEMENT
+    // ==========================================
+
+    const [user, setUser] = useState(null);
     const [applicants, setApplicants] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [lastFetch, setLastFetch] = useState(0);
 
-    // --- STATE CACHE SOAL (DASHBOARD) ---
+    // Kita hapus 'lastFetch' manual, karena sekarang dikontrol oleh Interval
+    const [adminProfile, setAdminProfile] = useState({ role: "", division: "", name: "" });
+    const [adminLoading, setAdminLoading] = useState(true);
     const [questionCache, setQuestionCache] = useState({});
 
-    // --- STATE FORM BUILDER ---
-    const [masterForms, setMasterForms] = useState([]);
-    const [formsLastFetch, setFormsLastFetch] = useState(0);
+    // ==========================================
+    // 2. FETCH DATA FUNCTIONS
+    // ==========================================
 
-    // -----------------------------------------------------------
-    // 1. FETCH APPLICANTS (Daftar Peserta)
-    // -----------------------------------------------------------
-    const fetchApplicants = async (force = false) => {
-        const now = Date.now();
-        const CACHE_DURATION = 15 * 60 * 1000; // 15 Menit
-
-        if (!force && applicants.length > 0 && (now - lastFetch < CACHE_DURATION)) {
-            setLoading(false);
-            return;
-        }
-
+    // --- FETCH PELAMAR (DENGAN USECALLBACK) ---
+    const fetchApplicants = useCallback(async () => {
         setLoading(true);
+        console.log("🔄 Syncing: Mengambil data pelamar terbaru...");
+
         try {
+            // NANTI: Di sini bisa ditambah logic 'where' untuk hemat kuota berdasarkan divisi
             const snapshot = await getDocs(collection(db, "applicants"));
+
             const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-            data.sort((a, b) => b.createdAt?.seconds - a.createdAt?.seconds);
+
+            // Sort data terbaru di atas
+            data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
             setApplicants(data);
-            setLastFetch(now);
         } catch (e) {
-            console.error("Gagal ambil data:", e);
+            console.error("❌ Gagal ambil pelamar:", e);
         } finally {
             setLoading(false);
         }
-    };
+    }, []); // Dependency kosong agar fungsi stabil
 
-    // -----------------------------------------------------------
-    // 2. FETCH SOAL PER DIVISI (Untuk Dashboard Detail)
-    // -----------------------------------------------------------
+    // --- SMART POLLING (AUTO-REFRESH 5 MENIT) ---
+    useEffect(() => {
+        // 1. Load pertama kali saat aplikasi dibuka
+        fetchApplicants();
+
+        // 2. Setup Timer 5 Menit (300.000 ms)
+        const intervalId = setInterval(() => {
+            // HANYA refresh jika user sedang melihat tab (Hemat Kuota & Baterai)
+            if (document.visibilityState === 'visible') {
+                console.log("⏰ Auto-Sync 5 Menit Triggered");
+                fetchApplicants();
+            } else {
+                console.log("⏸️ Tab Inactive: Auto-Sync ditunda (Hemat Kuota)");
+            }
+        }, 300000); // <--- 5 MENIT
+
+        // 3. Cleanup saat component unmount (Mencegah memory leak)
+        return () => clearInterval(intervalId);
+    }, [fetchApplicants]);
+
+
+    // --- FETCH ADMIN PROFILE ---
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+            setUser(currentUser);
+
+            if (currentUser) {
+                try {
+                    const docRef = doc(db, "admins", currentUser.uid);
+                    const docSnap = await getDoc(docRef);
+
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+
+                        let detectedDivision = data.division || data.divisi || "";
+                        if (!detectedDivision && data.role !== "superadmin") {
+                            detectedDivision = data.role;
+                        }
+
+                        console.log("✅ LOGIN ADMIN:", data.name, "| DIVISI:", detectedDivision);
+
+                        setAdminProfile({
+                            name: data.name || data.nama || "Admin",
+                            role: data.role || "guest",
+                            division: detectedDivision.toLowerCase()
+                        });
+                    } else {
+                        setAdminProfile({ role: "guest", division: "", name: "Guest" });
+                    }
+                } catch (error) {
+                    console.error("Error fetch admin:", error);
+                }
+            } else {
+                setAdminProfile({ role: "guest", division: "", name: "" });
+            }
+            setAdminLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    // --- FETCH SOAL PER DIVISI ---
     const getDivisionQuestions = async (divisionName) => {
         if (!divisionName) return [];
 
-        // Cek Cache dulu
-        if (questionCache[divisionName]) {
-            console.log(`⚡ Pakai Cache Soal: ${divisionName}`);
-            return questionCache[divisionName];
-        }
+        // Cek Cache Lokal dulu (Hemat Read)
+        if (questionCache[divisionName]) return questionCache[divisionName];
 
-        console.log(`🔥 Ambil Soal Baru: ${divisionName}`);
         try {
             const docRef = doc(db, "formConfigs", divisionName);
             const docSnap = await getDoc(docRef);
 
             if (docSnap.exists()) {
                 const questions = docSnap.data().questions || [];
-                // Simpan ke Cache
+                // Simpan ke cache
                 setQuestionCache(prev => ({ ...prev, [divisionName]: questions }));
                 return questions;
+            } else {
+                console.warn(`⚠️ Config form untuk ${divisionName} belum dibuat.`);
             }
         } catch (error) {
             console.error("Error fetching questions:", error);
@@ -72,85 +131,40 @@ export function ApplicantProvider({ children }) {
         return [];
     };
 
-    // -----------------------------------------------------------
-    // 3. FETCH MASTER FORM (Untuk Halaman Form Builder)
-    // -----------------------------------------------------------
-    const fetchMasterForms = async (force = false) => {
-        const now = Date.now();
-        const CACHE_DURATION = 10 * 60 * 1000; // 10 Menit
+    // ==========================================
+    // 3. UPDATE FUNCTIONS
+    // ==========================================
 
-        if (!force && masterForms.length > 0 && (now - formsLastFetch < CACHE_DURATION)) {
-            console.log("⚡ Form Builder: Pakai Cache (Instant)");
-            return;
-        }
-
-        console.log("🔥 Form Builder: Download Data...");
-        try {
-            const snapshot = await getDocs(collection(db, "formConfigs"));
-            const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-            setMasterForms(data);
-            setFormsLastFetch(now);
-        } catch (e) {
-            console.error("Gagal ambil form:", e);
-        }
-    };
-
-    // -----------------------------------------------------------
-    // 4. SAVE FORM CONFIG (Optimistic Update)
-    // -----------------------------------------------------------
     const saveFormConfig = async (divisionId, newQuestions) => {
         try {
-            // A. Update Firebase
             const docRef = doc(db, "formConfigs", divisionId);
-            await setDoc(docRef, { questions: newQuestions }, { merge: true });
+            await setDoc(docRef, { questions: newQuestions, updatedAt: new Date() }, { merge: true });
 
-            // B. Update State Form Builder (Biar gak perlu refresh)
-            setMasterForms(prev => {
-                const index = prev.findIndex(f => f.id === divisionId);
-                if (index !== -1) {
-                    const updated = [...prev];
-                    updated[index] = { ...updated[index], questions: newQuestions };
-                    return updated;
-                } else {
-                    return [...prev, { id: divisionId, questions: newQuestions }];
-                }
-            });
-
-            // C. Update juga Cache Dashboard (Biar sinkron)
             setQuestionCache(prev => ({ ...prev, [divisionId]: newQuestions }));
-
+            return true;
         } catch (error) {
             console.error("Gagal simpan form:", error);
             throw error;
         }
     };
 
-    // Helper: Update Data Peserta Lokal
     const updateApplicantLocal = (id, newData) => {
         setApplicants(prev => prev.map(app =>
             app.id === id ? { ...app, ...newData } : app
         ));
     };
 
-    // Initial Load
-    useEffect(() => {
-        fetchApplicants();
-        fetchMasterForms();
-    }, []);
-
     return (
         <ApplicantContext.Provider value={{
-            // State
+            user,
             applicants,
             loading,
-            masterForms,    // <--- JANGAN LUPA INI (PENTING BUAT FORM BUILDER)
-
-            // Functions
-            fetchApplicants,
+            adminProfile,
+            adminLoading,
+            fetchApplicants, // Fungsi ini sekarang aman dipanggil manual tombol "Sync"
             updateApplicantLocal,
             getDivisionQuestions,
-            fetchMasterForms, // <--- JANGAN LUPA INI
-            saveFormConfig    // <--- JANGAN LUPA INI
+            saveFormConfig
         }}>
             {children}
         </ApplicantContext.Provider>

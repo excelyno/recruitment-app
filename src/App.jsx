@@ -4,7 +4,6 @@ import Dashboard from "./pages/Dashboard";
 import Apply from "./pages/Apply";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/DashboardLayout";
-import AdminManagement from "./pages/AdminManagement";
 import GlobalAcceptedList from "./pages/GlobalAcceptedList";
 import DivisionList from "./pages/DivisionList";
 import FormBuilder from "./pages/FormBuilder";
@@ -28,7 +27,6 @@ function App() {
         {/* Semua halaman Dashboard dilindungi */}
         <Route element={<ProtectedRoute><ApplicantProvider><DashboardLayout /></ApplicantProvider></ProtectedRoute>}>
           <Route path="/DaShbOaRd" element={<Dashboard />} />
-          <Route path="/aDmIn-MaNaGeMeNt" element={<AdminManagement />} />
           <Route path="/gLoBaL-aCcEpTeD" element={<GlobalAcceptedList />} />
           <Route path="/mY-dIvIsIoN" element={<DivisionList />} />
           <Route path="/fOrM-bUiLdEr" element={<FormBuilder />} />
