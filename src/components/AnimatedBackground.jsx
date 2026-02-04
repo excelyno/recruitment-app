@@ -1,105 +1,119 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
+// Simbol Standard Galactic Alphabet
+const RUNES = [
+    "ᚠᚢᚦᚨ", "ᚱᚲᚷᚹ", "ᚺᚾᛁᛃ", "ᛇᛈᛉᛊ", "ᛏᛒᛖᛗ",
+    "ᛞᛟᛝ", "ΔΓΛΞ", "ΨΩΠΣ", "⟁↸⟃", "⚡︎★☾"
+];
+
 export default function AnimatedBackground() {
+    const [glyphs, setGlyphs] = useState([]);
+    const [particles, setParticles] = useState([]);
+
+    useEffect(() => {
+        // A. Generate GLYPHS (Huruf Enchanting)
+        // Jumlah diperbanyak (50) dan posisi disebar random X & Y
+        const glyphCount = 50;
+        const newGlyphs = Array.from({ length: glyphCount }).map((_, i) => ({
+            id: `glyph-${i}`,
+            text: RUNES[Math.floor(Math.random() * RUNES.length)],
+            left: Math.random() * 100, // Posisi Horizontal 0-100%
+            top: Math.random() * 100,  // Posisi Vertikal 0-100%
+            scale: Math.random() * 0.8 + 0.8, // Ukuran variatif (besar)
+            duration: Math.random() * 4 + 3,  // Durasi siklus (3-7 detik)
+            delay: Math.random() * 5, // Delay agar muncul tidak barengan
+            rotation: Math.floor(Math.random() * 360), // Rotasi awal acak
+        }));
+        setGlyphs(newGlyphs);
+
+        // B. Generate PARTICLES (Debu Portal Ungu)
+        const particleCount = 40;
+        const newParticles = Array.from({ length: particleCount }).map((_, i) => ({
+            id: `particle-${i}`,
+            left: Math.random() * 100,
+            top: Math.random() * 100,
+            size: Math.random() * 3 + 1,
+            duration: Math.random() * 5 + 5,
+        }));
+        setParticles(newParticles);
+    }, []);
+
     return (
-        <div className="fixed inset-0 -z-10 overflow-hidden bg-gradient-to-br from-sky-400 via-sky-500 to-blue-600">
-            {/* BACKGROUND: Gradasi Biru Langit Pekat -> Biru Laut (Supaya elemen putih menonjol) */}
-
-            {/* --- 1. CRISP WHITE GRID (Grid Putih Tegas) --- */}
-            {/* Grid ini bikin nuansa 'Blueprint' atau Arsitektur Tech */}
-            <div
-                className="absolute inset-0 opacity-[0.2]"
-                style={{
-                    backgroundImage: `linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px)`,
-                    backgroundSize: '50px 50px'
-                }}
-            ></div>
-
-            {/* --- 2. LIGHT SOURCE (Efek Matahari Digital) --- */}
+        <div className="fixed inset-0 -z-50 overflow-hidden bg-[#05020a]">
+            {/* --- ATMOSPHERE GLOWS (Background Nebula) --- */}
             <motion.div
-                className="absolute -top-[10%] -right-[10%] w-[600px] h-[600px] bg-white/30 rounded-full blur-[100px]"
-                animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-                transition={{ duration: 8, repeat: Infinity, repeatType: "reverse" }}
+                animate={{ scale: [1, 1.1, 1], opacity: [0.2, 0.3, 0.2] }}
+                transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute -top-[20%] -left-[10%] w-[80vw] h-[80vw] bg-purple-900/20 rounded-full blur-[120px] mix-blend-screen"
             />
-
-            {/* --- 3. HIGH CONTRAST TECH SHAPES (Benda Melayang) --- */}
-
-            {/* Hexagon Besar (Kiri Bawah) - Glass Effect */}
             <motion.div
-                className="absolute bottom-[10%] left-[5%] w-40 h-40 backdrop-blur-md bg-white/10 border-2 border-white/50 shadow-lg z-0"
-                style={{ clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)' }}
-                animate={{
-                    y: [0, -30, 0],
-                    rotate: [0, 5, 0]
-                }}
-                transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-            />
-
-            {/* Lingkaran Outline Tebal (Kanan Atas) */}
-            <motion.div
-                className="absolute top-[15%] right-[10%] w-32 h-32 rounded-full border-[3px] border-white/40"
-                animate={{
-                    y: [0, 20, 0],
-                    scale: [1, 1.1, 1]
-                }}
+                animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.25, 0.15] }}
                 transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-            >
-                {/* Titik tengah */}
-                <div className="absolute top-1/2 left-1/2 w-4 h-4 bg-white rounded-full -translate-x-1/2 -translate-y-1/2 shadow-[0_0_10px_white]"></div>
-            </motion.div>
-
-            {/* Kartu Kaca Persegi (Kiri Atas - Dekat Header) */}
-            <motion.div
-                className="absolute top-[20%] left-[10%] w-24 h-24 bg-white/10 backdrop-blur-sm border border-white/60 rounded-xl shadow-lg"
-                animate={{
-                    rotate: [0, 90, 180, 270, 360],
-                    scale: [1, 0.8, 1]
-                }}
-                transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+                className="absolute -bottom-[20%] -right-[10%] w-[70vw] h-[70vw] bg-fuchsia-900/15 rounded-full blur-[100px] mix-blend-screen"
             />
 
-            {/* Cross / Plus Signs (Simbol Tech Minimalis) */}
-            <PlusSign top="40%" left="85%" size={30} delay={0} />
-            <PlusSign top="60%" left="15%" size={20} delay={2} />
-            <PlusSign top="80%" left="70%" size={40} delay={4} />
-
-            {/* --- 4. DATA LINES (Garis Koneksi) --- */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-40">
-                <motion.line
-                    x1="10%" y1="10%" x2="90%" y2="90%"
-                    stroke="white" strokeWidth="1" strokeDasharray="10 10"
-                    initial={{ pathLength: 0 }}
-                    animate={{ pathLength: 1 }}
-                    transition={{ duration: 5, ease: "easeInOut" }}
-                />
-                <motion.circle
-                    cx="90%" cy="90%"
-                    r={5} // Ganti "5" (string) jadi {5} (number) biar aman
-                    fill="white"
-                    initial={{ r: 5, opacity: 0.5 }} // Set initial state eksplisit
-                    animate={{
-                        r: [3, 6, 3],
-                        opacity: [0.5, 1, 0.5]
+            {/* --- PORTAL PARTICLES (Debu Ungu Kecil) --- */}
+            {particles.map((p) => (
+                <motion.div
+                    key={p.id}
+                    className="absolute bg-purple-400 rounded-full"
+                    style={{
+                        left: `${p.left}%`,
+                        top: `${p.top}%`,
+                        width: p.size,
+                        height: p.size,
                     }}
-                    transition={{ duration: 2, repeat: Infinity }}
+                    animate={{
+                        y: [0, -40, 0], // Melayang naik turun pelan
+                        opacity: [0, 0.8, 0], // Kedip-kedip
+                    }}
+                    transition={{
+                        duration: p.duration,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        delay: Math.random() * 5,
+                    }}
                 />
-            </svg>
+            ))}
 
+            {/* --- ENCHANTING GLYPHS (ANIMASI POP-UP) --- */}
+            {glyphs.map((g) => (
+                <motion.div
+                    key={g.id}
+                    className="absolute font-bold text-transparent bg-clip-text bg-gradient-to-br from-purple-300 via-fuchsia-300 to-white select-none pointer-events-none"
+                    style={{
+                        left: `${g.left}%`,
+                        top: `${g.top}%`,
+                        fontSize: `${g.scale}rem`,
+                        fontFamily: "'Courier New', monospace",
+                        // Glow effect yang lebih kuat
+                        textShadow: "0 0 10px rgba(192, 38, 211, 0.8), 0 0 20px rgba(168, 85, 247, 0.4)",
+                        rotate: g.rotation,
+                    }}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{
+                        // Keyframes: Muncul (0) -> Membesar (1.2) -> Normal (1) -> Hilang (0)
+                        scale: [0, 1.3, 1, 0],
+                        opacity: [0, 1, 1, 0],
+                        // Sedikit rotasi saat animasi berjalan
+                        rotate: [g.rotation, g.rotation + 45],
+                    }}
+                    transition={{
+                        duration: g.duration,
+                        repeat: Infinity,
+                        // Repeat delay agar ada jeda "kosong" sebelum muncul lagi di tempat yang sama
+                        repeatDelay: Math.random() * 5 + 2,
+                        ease: "easeInOut",
+                        delay: g.delay,
+                    }}
+                >
+                    {g.text}
+                </motion.div>
+            ))}
+
+            {/* Vignette Gelap */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,#05020a_100%)] pointer-events-none"></div>
         </div>
     );
-}
-
-// Komponen Kecil: Tanda Tambah (+) Putih
-function PlusSign({ top, left, size, delay }) {
-    return (
-        <motion.div
-            className="absolute flex items-center justify-center"
-            style={{ top, left, width: size, height: size }}
-            animate={{ opacity: [0.4, 1, 0.4], scale: [1, 1.2, 1] }}
-            transition={{ duration: 4, repeat: Infinity, delay: delay }}
-        >
-            <div className="absolute w-full h-[3px] bg-white rounded-full shadow-sm"></div>
-            <div className="absolute h-full w-[3px] bg-white rounded-full shadow-sm"></div>
-        </motion.div>
-    )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { db, auth } from "../firebase";
 import { doc, updateDoc, getDoc, collection, getDocs } from "firebase/firestore"; // collection & getDocs masih dipakai untuk FormConfig & Admin check
 import { signOut } from "firebase/auth";
@@ -45,6 +45,22 @@ ChartJS.register(
 
 export default function Dashboard() {
     const { applicants, loading, updateApplicantLocal, getDivisionQuestions, fetchApplicants, adminProfile } = useApplicants();
+    // --- 1. SANITASI DATA (TAMBAHKAN INI) ---
+    // Ubah data mentah menjadi data aman agar tidak error di Filter/Chart
+    const safeApplicants = useMemo(() => {
+        if (!applicants) return [];
+
+        return applicants.map(app => ({
+            ...app,
+            // Kalau status kosong, paksa jadi 'pending'
+            status: app.status || "pending",
+            // Kalau nilai kosong, paksa jadi object 0
+            nilai: app.nilai || {
+                speaking: 0, teknis: 0, teamwork: 0,
+                attitude: 0, kreativitas: 0, solving: 0
+            }
+        }));
+    }, [applicants]);
     const [isSyncing, setIsSyncing] = useState(false);
 
     const handleManualSync = async () => {
@@ -114,29 +130,29 @@ export default function Dashboard() {
 
 
     // --- LOGIKA BARU: Ambil Master Soal agar urutannya 1, 2, 3... ---
-    useEffect(() => {
-        const fetchDivisionQuestions = async () => {
-            // Cuma jalan kalau ada peserta dipilih & punya divisi
-            if (selectedApplicant?.divisi) {
-                try {
-                    // Ambil config dari database (formConfigs/acara, formConfigs/humas, dll)
-                    const docRef = doc(db, "formConfigs", selectedApplicant.divisi);
-                    const docSnap = await getDoc(docRef);
+    // useEffect(() => {
+    //     const fetchDivisionQuestions = async () => {
+    //         // Cuma jalan kalau ada peserta dipilih & punya divisi
+    //         if (selectedApplicant?.divisi) {
+    //             try {
+    //                 // Ambil config dari database (formConfigs/acara, formConfigs/humas, dll)
+    //                 const docRef = doc(db, "formConfigs", selectedApplicant.divisi);
+    //                 const docSnap = await getDoc(docRef);
 
-                    if (docSnap.exists()) {
-                        // Simpan ke state formQuestions yang sudah Anda buat
-                        setFormQuestions(docSnap.data().questions || []);
-                    } else {
-                        setFormQuestions([]);
-                    }
-                } catch (error) {
-                    console.error("Gagal ambil urutan soal:", error);
-                }
-            }
-        };
+    //                 if (docSnap.exists()) {
+    //                     // Simpan ke state formQuestions yang sudah Anda buat
+    //                     setFormQuestions(docSnap.data().questions || []);
+    //                 } else {
+    //                     setFormQuestions([]);
+    //                 }
+    //             } catch (error) {
+    //                 console.error("Gagal ambil urutan soal:", error);
+    //             }
+    //         }
+    //     };
 
-        fetchDivisionQuestions();
-    }, [selectedApplicant]); // Efek ini jalan setiap ganti peserta
+    //     fetchDivisionQuestions();
+    // }, [selectedApplicant]); // Efek ini jalan setiap ganti peserta
 
 
     //========================================================================
@@ -162,20 +178,26 @@ export default function Dashboard() {
     }, [selectedApplicant, getDivisionQuestions]);
     //========================================================================
 
+    // --- 2. UPDATE FILTER (GANTI SUMBERNYA) ---
     const filteredApplicants = useMemo(() => {
-        let filtered = applicants;
+        // ✅ Ganti 'applicants' menjadi 'safeApplicants'
+        let filtered = safeApplicants;
+
         if (userRole && userRole !== 'superadmin' && userRole !== 'ketua') filtered = filtered.filter(app => app.divisi === userRole);
         if (filterDivisi !== 'all') filtered = filtered.filter(app => app.divisi === filterDivisi);
+
+        // Sekarang ini aman, karena status pasti ada isinya (minimal 'pending')
         if (filterStatus !== 'all') filtered = filtered.filter(app => app.status === filterStatus);
 
         return filtered.filter(app =>
             app.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
             app.prodi.toLowerCase().includes(searchTerm.toLowerCase())
         );
-    }, [applicants, searchTerm, userRole, filterDivisi, filterStatus]);
+    }, [safeApplicants, searchTerm, userRole, filterDivisi, filterStatus]); // ⚠️ Jangan lupa ubah dependency array
 
     const stats = useMemo(() => {
-        const sourceData = applicants; // Use all applicants for global stats if needed, or filtered
+        const sourceData = safeApplicants; // ✅ Pakai data aman
+        // Sisanya biarkan sama, logic kamu sudah benar
         // Using filtered for context-aware stats
         const dataToUse = filteredApplicants;
         const total = dataToUse.length;
@@ -197,12 +219,12 @@ export default function Dashboard() {
     }, [filteredApplicants, applicants]); // Add applicants dependancy if we switch logic
 
 
-    const handleScoreChange = (category, value) => {
+    const handleScoreChange = useCallback((category, value) => {
         setInputScores(prev => ({
             ...prev,
-            [category]: parseInt(value) || 0 // Pastikan value di-parse ke angka
+            [category]: parseInt(value) || 0
         }));
-    };
+    }, []);
 
     //save
 
@@ -227,10 +249,16 @@ export default function Dashboard() {
     };
     // 1. UPDATE handleSelect: Agar saat dibuka, nilai & notes langsung terisi
     const handleSelect = (app) => {
-        setSelectedApplicant(app);
-        // Masukkan data database ke state input agar siap diedit
-        setInputScores(app.nilai || { speaking: 0, teknis: 0, teamwork: 0, attitude: 0, kreativitas: 0, solving: 0 });
-        setInputNotes(app.recruiterNotes || "");
+        // Pastikan app yang dipilih juga versi yang punya default value
+        const amanApp = {
+            ...app,
+            status: app.status || "pending",
+            nilai: app.nilai || { speaking: 0, teknis: 0, teamwork: 0, attitude: 0, kreativitas: 0, solving: 0 }
+        };
+
+        setSelectedApplicant(amanApp);
+        setInputScores(amanApp.nilai);
+        setInputNotes(amanApp.recruiterNotes || "");
     };
 
     // 2. UPDATE updateStatus: Simpan Status + Nilai + Notes sekaligus
@@ -288,22 +316,24 @@ export default function Dashboard() {
         document.body.removeChild(link);
     };
 
-    // Chart Events
-    const handleDoughnutClick = (event) => {
-        const { current: chart } = doughnutRef;
-        if (!chart) return;
-        const elements = getElementAtEvent(chart, event);
-        if (elements.length > 0) {
-            const index = elements[0].index;
-            const statusMap = ['accepted', 'rejected', 'pending'];
-            setFilterStatus(statusMap[index]);
-        } else {
-            setFilterStatus('all');
-        }
-    };
-
     // Chart Configuration
-    const polarOptions = {
+    // 1. Tambahkan useMemo di polarData (Dependency: stats.avgScores)
+    const polarData = useMemo(() => ({
+        labels: categories.map(c => c.charAt(0).toUpperCase() + c.slice(1)),
+        datasets: [{
+            label: 'Avg Score',
+            data: stats.avgScores, // Data berubah hanya jika stats berubah
+            backgroundColor: [
+                'rgba(16, 185, 129, 0.5)', 'rgba(59, 130, 246, 0.5)',
+                'rgba(245, 158, 11, 0.5)', 'rgba(239, 68, 68, 0.5)',
+                'rgba(139, 92, 246, 0.5)', 'rgba(236, 72, 153, 0.5)',
+            ],
+            borderWidth: 0,
+        }]
+    }), [stats.avgScores]);
+
+    // 2. Tambahkan useMemo di polarOptions (Dependency kosong: [] karena settingan statis)
+    const polarOptions = useMemo(() => ({
         responsive: true,
         maintainAspectRatio: false,
         scales: {
@@ -314,26 +344,24 @@ export default function Dashboard() {
             }
         },
         plugins: { legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 6, font: { size: 10 } } } }
-    };
+    }), []);
 
-    const polarData = {
-        labels: categories.map(c => c.charAt(0).toUpperCase() + c.slice(1)),
-        datasets: [{
-            label: 'Avg Score',
-            data: stats.avgScores,
-            backgroundColor: [
-                'rgba(16, 185, 129, 0.5)',
-                'rgba(59, 130, 246, 0.5)',
-                'rgba(245, 158, 11, 0.5)',
-                'rgba(239, 68, 68, 0.5)',
-                'rgba(139, 92, 246, 0.5)',
-                'rgba(236, 72, 153, 0.5)',
-            ],
-            borderWidth: 0,
-        }]
-    };
+    // 3. Bungkus handle click chart dengan useCallback dulu
+    const handleDoughnutClick = useCallback((event) => {
+        const { current: chart } = doughnutRef;
+        if (!chart) return;
+        const elements = getElementAtEvent(chart, event);
+        if (elements.length > 0) {
+            const index = elements[0].index;
+            const statusMap = ['accepted', 'rejected', 'pending'];
+            setFilterStatus(statusMap[index]);
+        } else {
+            setFilterStatus('all');
+        }
+    }, []);
 
-    const doughnutOptions = {
+    // 4. Tambahkan useMemo di doughnutOptions (Dependency: handleDoughnutClick)
+    const doughnutOptions = useMemo(() => ({
         cutout: '75%',
         borderRadius: 10,
         plugins: { legend: { display: false } },
@@ -342,7 +370,7 @@ export default function Dashboard() {
         onHover: (event, chartElement) => {
             event.native.target.style.cursor = chartElement.length ? 'pointer' : 'default';
         }
-    };
+    }), [handleDoughnutClick]);
 
     if (loading) return (
         <div className="min-h-[60vh] flex items-center justify-center">
@@ -508,7 +536,10 @@ export default function Dashboard() {
                                             {Math.round(Object.values(app.nilai || {}).reduce((a, b) => a + parseInt(b), 0) / 6)}
                                         </td>
                                         <td className="p-5 text-center">
-                                            <div className={`w-2 h-2 rounded-full mx-auto ${app.status === 'accepted' ? 'bg-emerald-500' : app.status === 'rejected' ? 'bg-rose-500' : 'bg-amber-400'}`}></div>
+                                            <div className={`w-2 h-2 rounded-full mx-auto ${app.status === 'accepted' ? 'bg-emerald-500' :
+                                                app.status === 'rejected' ? 'bg-rose-500' :
+                                                    'bg-amber-400 animate-pulse' // <--- Tambahkan animate-pulse biar status Pending berdenyut
+                                                }`}></div>
                                         </td>
                                     </motion.tr>
                                 ))}

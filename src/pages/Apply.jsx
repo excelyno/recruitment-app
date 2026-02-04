@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, memo } from "react"; // Tambah useCallback & memo
 import { db } from "../firebase";
 import {
     doc,
@@ -8,13 +8,80 @@ import {
 } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 import SuccessModal from "../components/SuccessModal";
+import { Loader2, AlertCircle, Sparkles } from "lucide-react";
+
+// --- IMPORT COMPONENT BACKGROUND ---
 import AnimatedBackground from "../components/AnimatedBackground";
-import { Loader2, AlertCircle } from "lucide-react";
+import headerImage from "../assets/header-fix-ikan.png";
 
-// --- IMPORT GAMBAR HEADER DI SINI ---
-// Pastikan file gambar ada di folder src/assets/
-import headerImage from "../assets/header-form.jpeg";
+// --- 1. SUB-COMPONENT: HEADER (Di-Memoize agar tidak re-render saat ngetik) ---
+const HeaderSection = memo(() => (
+    <>
+        <div className="w-full h-auto relative">
+            <img
+                src={headerImage}
+                alt="Join The Team"
+                className="w-full h-full object-cover"
+                loading="lazy" // Lazy load gambar
+            />
+            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#0f0a18] to-transparent"></div>
+        </div>
 
+        <div className="p-8 md:p-12 pt-4 pb-0">
+            <div className="mb-8 text-center md:text-left relative">
+                <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-fuchsia-200 to-purple-200 mb-2 drop-shadow-[0_0_10px_rgba(168,85,247,0.5)] flex items-center gap-2 justify-center md:justify-start">
+                    Join The Team.
+                </h1>
+                <p className="text-purple-300/60 font-medium">Isi formulir di bawah ini dengan jujur.</p>
+                <div className="h-1 w-20 bg-gradient-to-r from-purple-500 to-fuchsia-500 rounded-full mt-4 mx-auto md:mx-0 shadow-[0_0_10px_rgba(168,85,247,0.8)]"></div>
+            </div>
+        </div>
+    </>
+));
+
+// --- 2. SUB-COMPONENT: ITEM PERTANYAAN DINAMIS (Di-Memoize) ---
+const QuestionItem = memo(({ q, value, onChange }) => {
+    return (
+        <div className="bg-white/5 p-5 rounded-2xl border border-white/5 hover:border-purple-500/30 transition-all">
+            <label className="block text-sm font-semibold text-purple-100 mb-3">{q.text}</label>
+            {q.type === 'longtext' ? (
+                <textarea
+                    required
+                    rows={3}
+                    value={value || ""}
+                    onChange={(e) => onChange(q.id, e.target.value)}
+                    className="w-full bg-[#0a0514] border border-white/10 text-purple-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none resize-none transition-all placeholder-white/20"
+                    placeholder="Jawab di sini..."
+                />
+            ) : q.type === 'scale' ? (
+                <div className="bg-[#0a0514] p-4 rounded-xl border border-white/10">
+                    <div className="flex justify-between text-xs font-bold text-purple-300/60 mb-3"><span>1 (Kurang)</span><span>10 (Sangat Bisa)</span></div>
+                    <input
+                        type="range"
+                        min="1"
+                        max="10"
+                        value={value || 5}
+                        onChange={(e) => onChange(q.id, e.target.value)}
+                        className="w-full accent-purple-500 h-2 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                    />
+                    <div className="text-center font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-fuchsia-400 mt-2 text-xl">{value || 5}</div>
+                </div>
+            ) : (
+                <input
+                    type="text"
+                    required
+                    value={value || ""}
+                    onChange={(e) => onChange(q.id, e.target.value)}
+                    className="w-full bg-[#0a0514] border border-white/10 text-purple-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all placeholder-white/20"
+                    placeholder="Jawaban..."
+                />
+            )}
+        </div>
+    );
+});
+
+
+// --- 3. COMPONENT UTAMA ---
 export default function Apply() {
     const GOOGLE_SCRIPT_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL;
 
@@ -34,7 +101,7 @@ export default function Apply() {
     const [showSuccess, setShowSuccess] = useState(false);
     const [toast, setToast] = useState({ show: false, message: "", type: "error" });
 
-    // --- LOGIC FETCH SOAL (TETAP SAMA) ---
+    // --- LOGIC FETCH SOAL ---
     useEffect(() => {
         if (!formData.divisi) {
             setDynamicQuestions([]);
@@ -50,8 +117,7 @@ export default function Apply() {
                 const cachedData = localStorage.getItem(CACHE_KEY);
                 if (cachedData) {
                     const { data, timestamp } = JSON.parse(cachedData);
-                    const now = Date.now();
-                    if (now - timestamp < CACHE_DURATION) {
+                    if (Date.now() - timestamp < CACHE_DURATION) {
                         setDynamicQuestions(data);
                         setLoadingConfig(false);
                         return;
@@ -76,7 +142,7 @@ export default function Apply() {
                 const cachedData = localStorage.getItem(CACHE_KEY);
                 if (cachedData) setDynamicQuestions(JSON.parse(cachedData).data);
             } finally {
-                setTimeout(() => setLoadingConfig(false), 300);
+                setLoadingConfig(false); // Hapus setTimeout agar UI lebih responsif
             }
         };
 
@@ -84,13 +150,14 @@ export default function Apply() {
         setDynamicAnswers({});
     }, [formData.divisi]);
 
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+    // --- OPTIMASI HANDLER (Pakai useCallback) ---
+    const handleChange = useCallback((e) => {
+        setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    }, []);
 
-    const handleDynamicAnswer = (id, value) => {
+    const handleDynamicAnswer = useCallback((id, value) => {
         setDynamicAnswers(prev => ({ ...prev, [id]: value }));
-    };
+    }, []);
 
     const submitToGoogleSheets = async (finalData) => {
         try {
@@ -100,7 +167,6 @@ export default function Apply() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(finalData),
             });
-            console.log("✅ Data sent to Google Sheets");
         } catch (error) {
             console.error("❌ Failed sending to Sheets:", error);
         }
@@ -137,28 +203,29 @@ export default function Apply() {
                 answer: dynamicAnswers[q.id] || "-"
             }));
 
-            const finalPayload = {
+            const firestorePayload = {
                 ...formData,
                 nim: docId,
                 answersDetails: answersDetails,
                 dynamicAnswers: dynamicAnswers,
-                status: "pending",
                 createdAt: serverTimestamp(),
-                nilai: { speaking: 0, teknis: 0, teamwork: 0, attitude: 0, kreativitas: 0, solving: 0 }
             };
 
-            await setDoc(docRef, finalPayload);
-
-            submitToGoogleSheets({
-                ...finalPayload,
+            const sheetsPayload = {
+                ...firestorePayload,
+                status: "pending",
+                nilai: JSON.stringify({ speaking: 0, teknis: 0, teamwork: 0, attitude: 0, kreativitas: 0, solving: 0 }),
                 createdAt: new Date().toISOString()
-            });
+            };
+
+            await setDoc(docRef, firestorePayload);
+            submitToGoogleSheets(sheetsPayload);
 
             setShowSuccess(true);
         } catch (error) {
             console.error("Submit Error:", error);
             if (error.code === 'permission-denied') {
-                showToast(`Ups! NIM ${formData.nim} sudah terdaftar.`, "error");
+                showToast(`Ups! NIM ${formData.nim} sudah terdaftar atau akses ditolak.`, "error");
             } else {
                 showToast("Gagal terhubung ke server. Coba lagi.", "error");
             }
@@ -168,14 +235,16 @@ export default function Apply() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 md:p-8 font-sans text-slate-800 relative overflow-hidden">
+        <div className="relative min-h-screen flex items-center justify-center p-4 md:p-8 font-sans text-slate-100 overflow-hidden">
+
+            {/* Background tetap render sekali saja */}
             <AnimatedBackground />
 
             <SuccessModal
                 isOpen={showSuccess}
                 onClose={() => window.location.reload()}
                 title="Pendaftaran Berhasil!"
-                message="Data kamu sudah masuk. Good luck!"
+                message="Data kamu sudah masuk ke database panitia. Good luck!"
             />
 
             <AnimatePresence>
@@ -185,81 +254,70 @@ export default function Apply() {
                         animate={{ opacity: 1, y: 0, x: "-50%" }}
                         exit={{ opacity: 0, y: -50, x: "-50%" }}
                         transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                        className="fixed top-6 left-1/2 z-50 flex items-center gap-3 px-6 py-4 bg-white/90 backdrop-blur-md border border-red-100 shadow-2xl rounded-2xl"
+                        className="fixed top-6 left-1/2 z-50 flex items-center gap-3 px-6 py-4 bg-[#1a1025]/95 backdrop-blur-sm border border-red-500/50 shadow-lg rounded-2xl"
                     >
-                        <div className="bg-red-100 p-2 rounded-full text-red-500">
+                        <div className="bg-red-500/20 p-2 rounded-full text-red-400">
                             <AlertCircle size={20} />
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-sm font-bold text-slate-800">Periksa Lagi</span>
-                            <span className="text-xs font-medium text-slate-500">{toast.message}</span>
+                            <span className="text-sm font-bold text-red-100">Periksa Lagi</span>
+                            <span className="text-xs font-medium text-red-300">{toast.message}</span>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
+            {/* FORM CONTAINER - Mengurangi Blur menjadi md untuk performa */}
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                // PERUBAHAN 1: Tambah 'overflow-hidden' dan hapus padding (p-8) di sini agar gambar mentok ke tepi
-                className="w-full max-w-2xl bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 relative z-10 overflow-hidden"
+                className="w-full max-w-2xl bg-[#0f0a18]/80 backdrop-blur-md rounded-3xl shadow-[0_0_30px_rgba(139,92,246,0.1)] border border-purple-500/20 relative z-10 overflow-hidden"
             >
-                {/* --- AREA GAMBAR HEADER --- */}
-                <div className="w-full h-30 md:h-40 relative bg-slate-200">
-                    <img
-                        src={headerImage}
-                        alt="Join The Team"
-                        className="w-full h-full object-cover"
-                    />
-                    {/* Opsional: Overlay gradient halus di bawah gambar supaya transisi ke putih lebih smooth */}
-                    <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white/90 to-transparent"></div>
-                </div>
+                {/* Bagian Header yang di-Memoize */}
+                <HeaderSection />
 
-                {/* --- AREA KONTEN (JUDUL & FORM) --- */}
-                {/* Kita kasih padding di sini, terpisah dari gambar */}
-                <div className="p-8 md:p-12 pt-6">
-
-                    <div className="mb-10 text-center md:text-left">
-                        <h1 className="text-3xl font-black text-slate-900 mb-2">Join The Team.</h1>
-                        <p className="text-slate-500">Isi formulir di bawah ini dengan jujur.</p>
-                    </div>
-
+                {/* Form Content */}
+                <div className="p-8 md:p-12 pt-0">
                     <form onSubmit={handleSubmit} className="space-y-6">
-
-                        {/* INPUT FIELDS (SAMA SEPERTI SEBELUMNYA) */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="md:col-span-2">
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nama Lengkap</label>
-                                <input type="text" name="nama" required value={formData.nama} onChange={handleChange} className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-semibold transition-all" placeholder="Nama Lengkap" />
+                                <label className="block text-xs font-bold text-purple-300 uppercase mb-2 tracking-wider">Nama Lengkap</label>
+                                <input type="text" name="nama" required value={formData.nama} onChange={handleChange}
+                                    className="w-full bg-white/5 border border-white/10 text-purple-100 px-4 py-3 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none font-semibold transition-all hover:bg-white/10"
+                                    placeholder="Nama Lengkap" />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">NIM</label>
-                                <input type="text" name="nim" required value={formData.nim} onChange={handleChange} className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" placeholder="NIM" />
+                                <label className="block text-xs font-bold text-purple-300 uppercase mb-2 tracking-wider">NIM</label>
+                                <input type="text" name="nim" required value={formData.nim} onChange={handleChange}
+                                    className="w-full bg-white/5 border border-white/10 text-purple-100 px-4 py-3 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all hover:bg-white/10"
+                                    placeholder="NIM" />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Prodi</label>
+                                <label className="block text-xs font-bold text-purple-300 uppercase mb-2 tracking-wider">Prodi</label>
                                 <div className="relative">
-                                    <select name="prodi" required value={formData.prodi} onChange={handleChange} className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none appearance-none cursor-pointer transition-all">
-                                        <option value="" disabled>-- Pilih Prodi --</option>
-                                        <option value="Informatika">Informatika</option>
-                                        <option value="Sistem Informasi">Sistem Informasi</option>
-                                        <option value="Teknologi Informasi">Teknologi Informasi</option>
+                                    <select name="prodi" required value={formData.prodi} onChange={handleChange}
+                                        className="w-full bg-white/5 border border-white/10 text-purple-100 px-4 py-3 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none appearance-none cursor-pointer transition-all hover:bg-white/10">
+                                        <option value="" disabled className="bg-[#1a1025] text-gray-400">-- Pilih Prodi --</option>
+                                        <option value="Informatika" className="bg-[#1a1025]">Informatika</option>
+                                        <option value="Sistem Informasi" className="bg-[#1a1025]">Sistem Informasi</option>
+                                        <option value="Teknologi Informasi" className="bg-[#1a1025]">Teknologi Informasi</option>
                                     </select>
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Angkatan</label>
+                                <label className="block text-xs font-bold text-purple-300 uppercase mb-2 tracking-wider">Angkatan</label>
                                 <div className="relative">
-                                    <select name="angkatan" required value={formData.angkatan} onChange={handleChange} className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none appearance-none cursor-pointer transition-all">
-                                        <option value="" disabled>-- Pilih Angkatan --</option>
-                                        <option value="2023">2023</option>
-                                        <option value="2024">2024</option>
-                                        <option value="2025">2025</option>
+                                    <select name="angkatan" required value={formData.angkatan} onChange={handleChange}
+                                        className="w-full bg-white/5 border border-white/10 text-purple-100 px-4 py-3 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none appearance-none cursor-pointer transition-all hover:bg-white/10">
+                                        <option value="" disabled className="bg-[#1a1025] text-gray-400">-- Pilih Angkatan --</option>
+                                        <option value="2023" className="bg-[#1a1025]">2023</option>
+                                        <option value="2024" className="bg-[#1a1025]">2024</option>
+                                        <option value="2025" className="bg-[#1a1025]">2025</option>
                                     </select>
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">WhatsApp</label>
+                                <label className="block text-xs font-bold text-purple-300 uppercase mb-2 tracking-wider">WhatsApp</label>
                                 <input
                                     type="tel"
                                     inputMode="numeric"
@@ -268,53 +326,49 @@ export default function Apply() {
                                     required
                                     value={formData.whatsapp}
                                     onChange={handleChange}
-                                    className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                                    className="w-full bg-white/5 border border-white/10 text-purple-100 px-4 py-3 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all hover:bg-white/10"
                                     placeholder="08..."
                                 />
                             </div>
                             <div className="md:col-span-2">
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Pilih Divisi</label>
-                                <div className="relative">
-                                    <select name="divisi" required value={formData.divisi} onChange={handleChange} className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none appearance-none font-bold text-slate-700 cursor-pointer transition-all">
-                                        <option value="" disabled>-- Pilih Divisi --</option>
-                                        <option value="acara">Divisi Acara</option>
-                                        <option value="humas">Divisi Humas</option>
-                                        <option value="pdd">Divisi PDD</option>
-                                        <option value="perkab">Divisi Perkab</option>
+                                <label className="block text-xs font-bold text-purple-300 uppercase mb-2 tracking-wider">Pilih Divisi</label>
+                                <div className="relative group">
+                                    <select name="divisi" required value={formData.divisi} onChange={handleChange}
+                                        className="w-full bg-white/5 border border-purple-500/30 text-purple-100 font-bold px-4 py-3 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none appearance-none cursor-pointer transition-all hover:bg-purple-900/20 hover:border-purple-500/60">
+                                        <option value="" disabled className="bg-[#1a1025] text-gray-400">-- Pilih Divisi --</option>
+                                        <option value="acara" className="bg-[#1a1025]">Divisi Acara</option>
+                                        <option value="humas" className="bg-[#1a1025]">Divisi Humas</option>
+                                        <option value="pdd" className="bg-[#1a1025]">Divisi PDD</option>
+                                        <option value="perkab" className="bg-[#1a1025]">Divisi Perkab</option>
                                     </select>
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-purple-400">
+                                        <Sparkles size={16} />
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="border-t border-slate-100 my-4"></div>
+                        <div className="border-t border-white/10 my-4"></div>
 
-                        {/* DYNAMIC QUESTIONS */}
+                        {/* Dynamic Questions (Di-Memoize per Item) */}
                         <AnimatePresence mode="wait">
                             {loadingConfig ? (
                                 <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex justify-center py-8">
-                                    <Loader2 className="animate-spin text-emerald-500" />
+                                    <Loader2 className="animate-spin text-purple-500" size={32} />
                                 </motion.div>
                             ) : (
                                 formData.divisi && (
                                     <motion.div key="questions" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                                         {dynamicQuestions.length === 0 ? (
-                                            <p className="text-slate-400 italic text-sm text-center">Tidak ada pertanyaan khusus.</p>
+                                            <p className="text-purple-300/50 italic text-sm text-center border border-white/5 p-4 rounded-xl bg-white/5">Tidak ada pertanyaan khusus untuk divisi ini.</p>
                                         ) : (
                                             dynamicQuestions.map((q) => (
-                                                <div key={q.id}>
-                                                    <label className="block text-sm font-semibold text-slate-700 mb-2">{q.text}</label>
-                                                    {q.type === 'longtext' ? (
-                                                        <textarea required rows={3} value={dynamicAnswers[q.id] || ""} onChange={(e) => handleDynamicAnswer(q.id, e.target.value)} className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none resize-none transition-all" placeholder="Jawaban Anda..." />
-                                                    ) : q.type === 'scale' ? (
-                                                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                                            <div className="flex justify-between text-xs font-bold text-slate-400 mb-2"><span>1 (Kurang)</span><span>10 (Sangat Bisa)</span></div>
-                                                            <input type="range" min="1" max="10" value={dynamicAnswers[q.id] || 5} onChange={(e) => handleDynamicAnswer(q.id, e.target.value)} className="w-full accent-emerald-500" />
-                                                            <div className="text-center font-bold text-emerald-600 mt-1 text-lg">{dynamicAnswers[q.id] || 5}</div>
-                                                        </div>
-                                                    ) : (
-                                                        <input type="text" required value={dynamicAnswers[q.id] || ""} onChange={(e) => handleDynamicAnswer(q.id, e.target.value)} className="w-full bg-slate-50 px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" placeholder="Jawaban..." />
-                                                    )}
-                                                </div>
+                                                <QuestionItem
+                                                    key={q.id}
+                                                    q={q}
+                                                    value={dynamicAnswers[q.id]}
+                                                    onChange={handleDynamicAnswer}
+                                                />
                                             ))
                                         )}
                                     </motion.div>
@@ -322,8 +376,13 @@ export default function Apply() {
                             )}
                         </AnimatePresence>
 
-                        <button type="submit" disabled={submitting || !formData.divisi} className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-emerald-600 transition-all shadow-xl disabled:opacity-50 mt-6 transform active:scale-95">
-                            {submitting ? "Mengirim..." : "Kirim Pendaftaran"}
+                        <button type="submit" disabled={submitting || !formData.divisi}
+                            className="w-full py-4 bg-gradient-to-r from-purple-700 via-fuchsia-700 to-purple-700 text-white font-bold rounded-xl hover:shadow-[0_0_20px_rgba(192,38,211,0.5)] transition-all shadow-lg disabled:opacity-50 disabled:shadow-none mt-6 transform active:scale-95 border border-white/10 relative overflow-hidden group">
+                            <span className="relative z-10 flex items-center justify-center gap-2">
+                                {submitting ? <Loader2 className="animate-spin" size={20} /> : <Sparkles size={20} />}
+                                {submitting ? "Mengirim Data..." : "Kirim Pendaftaran"}
+                            </span>
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer" style={{ backgroundSize: '200% 100%' }}></div>
                         </button>
                     </form>
                 </div>
