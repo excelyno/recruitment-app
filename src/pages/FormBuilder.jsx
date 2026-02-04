@@ -13,8 +13,7 @@ import FeatureGuard from "../components/FeatureGuard";
 // Ganti ke 'true' jika Anda ingin mengedit form.
 // Kembalikan ke 'false' setelah selesai agar aman.
 // ==========================================
-const ENABLE_FORM_BUILDER = false;
-
+const ENABLE_FORM_BUILDER = true;
 
 // 2. KOMPONEN UTAMA (HANYA SEBAGAI PINTU GERBANG)
 export default function FormBuilder() {
