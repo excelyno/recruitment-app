@@ -1,8 +1,8 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    LayoutDashboard, Users, UserCog, ClipboardList,
-    FileEdit, LogOut, X
+    LayoutDashboard, Users, ClipboardList,
+    FileEdit, LogOut, X, ShieldCheck
 } from "lucide-react";
 import { auth } from "../firebase";
 import { signOut } from "firebase/auth";
@@ -15,34 +15,36 @@ export default function Sidebar({ userRole = "guest", mobileOpen, setMobileOpen 
         navigate("/");
     };
 
-    // Konfigurasi Menu
+    // --- KONFIGURASI MENU ---
     const links = [
         {
-            to: "/dashboard",
+            to: "/DaShbOaRd",
             label: "Dashboard",
             icon: <LayoutDashboard size={20} />,
             roles: ["all"]
         },
-        // orang orang yang keterima coy
+        // --- MENU SAKTI (GLOBAL LIST) ---
+        // Perbaikan: Role 'ketua' & 'bph' ditambahkan di sini agar bisa lihat semua data
         {
-            to: "/global-accepted",
-            label: "List Diterima",
-            icon: <Users size={20} />,
-            roles: ["superadmin"]
+            to: "/gLoBaL-aCcEpTeD",
+            label: "Global List (Semua)",
+            icon: <ShieldCheck size={20} />,
+            roles: ["superadmin", "ketua", "bph"]
         },
-        // --- Form Management (Superadmin & Acara) ---
+        // --- FORM BUILDER ---
         {
-            to: "/form-builder",
+            to: "/fOrM-bUiLdEr",
             label: "Form Builder",
             icon: <FileEdit size={20} />,
-            roles: ["superadmin", "acara"]
+            roles: ["superadmin", "acara", "ketua"] // Ketua juga bisa edit form jika perlu
         },
-        // --- Division Menu ---
+        // --- DIVISI SAYA ---
         {
-            to: "/my-division", // Pastikan route ini ada di App.jsx (DivisionList)
+            to: "/mY-dIvIsIoN",
             label: "Divisi Saya",
             icon: <ClipboardList size={20} />,
             roles: ["acara", "humas", "pdd", "perkab"]
+            // Pastikan semua role divisi tertulis disini
         }
     ];
 
@@ -51,39 +53,41 @@ export default function Sidebar({ userRole = "guest", mobileOpen, setMobileOpen 
         link.roles.includes("all") || link.roles.includes(userRole)
     );
 
-    // Komponen Konten Sidebar (Reusable untuk Desktop & Mobile)
+    // --- KOMPONEN KONTEN SIDEBAR ---
     const SidebarContent = () => (
         <div className="h-full flex flex-col bg-white border-r border-slate-200">
-            {/* Header Logo */}
-            <div className="h-20 flex items-center px-8 border-b border-slate-100 bg-white/50 backdrop-blur-sm">
-                <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-500/20 mr-3">
+            {/* 1. Header Logo */}
+            <div className="h-20 flex items-center px-6 border-b border-slate-100 bg-white/50 backdrop-blur-sm">
+                <div className="w-10 h-10 bg-gradient-to-br from-sky-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-sky-500/20 mr-3">
                     L
                 </div>
                 <span className="font-bold text-lg tracking-tight text-slate-800">
-                    Recruit<span className="text-green-600">LAWOS</span>
+                    Recruit<span className="text-sky-500">LAWOS</span>
                 </span>
             </div>
 
-            {/* Menu Links */}
+            {/* 2. Menu Links */}
             <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1 custom-scrollbar">
-                <p className="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Main Menu</p>
+                <p className="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                    Main Menu ({userRole})
+                </p>
                 {filteredLinks.map((link) => (
                     <NavLink
                         key={link.to}
                         to={link.to}
-                        onClick={() => setMobileOpen(false)} // Tutup sidebar di HP saat klik
+                        onClick={() => setMobileOpen(false)}
                         className={({ isActive }) =>
                             `flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-300 group relative overflow-hidden ${isActive
-                                ? "bg-emerald-50 text-emerald-700 shadow-sm ring-1 ring-emerald-100"
-                                : "text-slate-500 hover:bg-slate-50 hover:text-emerald-600"
+                                ? "bg-sky-50 text-sky-700 shadow-sm ring-1 ring-sky-100"
+                                : "text-slate-500 hover:bg-slate-50 hover:text-sky-600"
                             }`
                         }
                     >
                         {({ isActive }) => (
                             <>
-                                {/* Indikator Garis Hijau di Kiri */}
+                                {/* Indikator Garis Biru di Kiri */}
                                 <span
-                                    className={`absolute left-0 top-2 bottom-2 w-1 bg-emerald-500 rounded-r-full transition-transform duration-300 ${isActive ? 'scale-y-100 translate-x-0' : 'scale-y-0 -translate-x-full'
+                                    className={`absolute left-0 top-2 bottom-2 w-1 bg-sky-500 rounded-r-full transition-transform duration-300 ${isActive ? 'scale-y-100 translate-x-0' : 'scale-y-0 -translate-x-full'
                                         }`}
                                 />
 
@@ -97,7 +101,7 @@ export default function Sidebar({ userRole = "guest", mobileOpen, setMobileOpen 
                 ))}
             </nav>
 
-            {/* Footer / Logout */}
+            {/* 3. Footer / Logout */}
             <div className="p-4 border-t border-slate-100 bg-slate-50/50">
                 <button
                     onClick={handleLogout}
@@ -112,12 +116,12 @@ export default function Sidebar({ userRole = "guest", mobileOpen, setMobileOpen 
 
     return (
         <>
-            {/* --- DESKTOP SIDEBAR (Static) --- */}
-            <aside className="hidden md:block w-50 h-screen sticky top-0 z-30 shrink-0">
+            {/* --- DESKTOP SIDEBAR --- */}
+            <aside className="hidden md:block w-64 h-screen sticky top-0 z-30 shrink-0">
                 <SidebarContent />
             </aside>
 
-            {/* --- MOBILE SIDEBAR (Drawer) --- */}
+            {/* --- MOBILE SIDEBAR --- */}
             <AnimatePresence>
                 {mobileOpen && (
                     <>

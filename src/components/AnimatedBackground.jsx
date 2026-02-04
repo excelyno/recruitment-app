@@ -73,8 +73,14 @@ export default function AnimatedBackground() {
                     transition={{ duration: 5, ease: "easeInOut" }}
                 />
                 <motion.circle
-                    cx="90%" cy="90%" r="5" fill="white"
-                    animate={{ r: [3, 6, 3], opacity: [0.5, 1, 0.5] }}
+                    cx="90%" cy="90%"
+                    r={5} // Ganti "5" (string) jadi {5} (number) biar aman
+                    fill="white"
+                    initial={{ r: 5, opacity: 0.5 }} // Set initial state eksplisit
+                    animate={{
+                        r: [3, 6, 3],
+                        opacity: [0.5, 1, 0.5]
+                    }}
                     transition={{ duration: 2, repeat: Infinity }}
                 />
             </svg>

@@ -17,8 +17,8 @@ export default function GlobalAcceptedList() {
         // A. Filter Status: Harus 'accepted'
         let filtered = applicants.filter(app => app.status === 'accepted');
 
-        // B. Filter Role: Jika BUKAN Superadmin, filter cuma divisinya dia
-        if (adminProfile?.role !== 'superadmin') {
+        // B. Filter Role: Jika BUKAN Superadmin atau Ketua, filter cuma divisinya dia
+        if (adminProfile?.role !== 'superadmin' && adminProfile?.role !== 'ketua') {
             filtered = filtered.filter(app => app.divisi === adminProfile?.division);
         }
 
