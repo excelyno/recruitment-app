@@ -34,3 +34,21 @@ body {
 ::-webkit-scrollbar-thumb {
   @apply bg-sage-300 rounded-full hover:bg-sage-400 transition-colors;
 }
+
+@keyframes fadeEntry {
+  0% {
+    opacity: 0;
+    transform: translateY(15px);
+    /* Muncul dari agak bawah */
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-enter {
+  /* Nama animasi, durasi 0.4 detik, easing smooth */
+  animation: fadeEntry 0.4s ease-out forwards;
+}
