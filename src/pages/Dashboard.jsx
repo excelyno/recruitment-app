@@ -164,7 +164,7 @@ export default function Dashboard() {
 
     const filteredApplicants = useMemo(() => {
         let filtered = applicants;
-        if (userRole && userRole !== 'superadmin') filtered = filtered.filter(app => app.divisi === userRole);
+        if (userRole && userRole !== 'superadmin' && userRole !== 'ketua') filtered = filtered.filter(app => app.divisi === userRole);
         if (filterDivisi !== 'all') filtered = filtered.filter(app => app.divisi === filterDivisi);
         if (filterStatus !== 'all') filtered = filtered.filter(app => app.status === filterStatus);
 
