@@ -235,7 +235,9 @@ export default function Apply() {
     };
 
     return (
-        <div className="relative min-h-screen flex items-center justify-center p-4 md:p-8 font-sans text-slate-100 overflow-hidden">
+        // UBAHAN 1: 'py-12' memberi jarak atas-bawah yang cukup lega di HP agar background terlihat.
+        // 'px-6' memberi jarak kiri-kanan agar form tidak mepet layar.
+        <div className="relative min-h-screen flex items-center justify-center py-12 px-6 md:px-8 font-sans text-slate-100 overflow-hidden">
 
             {/* Background tetap render sekali saja */}
             <AnimatedBackground />
@@ -254,9 +256,10 @@ export default function Apply() {
                         animate={{ opacity: 1, y: 0, x: "-50%" }}
                         exit={{ opacity: 0, y: -50, x: "-50%" }}
                         transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                        className="fixed top-6 left-1/2 z-50 flex items-center gap-3 px-6 py-4 bg-[#1a1025]/95 backdrop-blur-sm border border-red-500/50 shadow-lg rounded-2xl"
+                        // Toast tetap fixed di atas
+                        className="fixed top-6 left-1/2 z-50 flex items-center gap-3 px-6 py-4 bg-[#1a1025]/95 backdrop-blur-sm border border-red-500/50 shadow-lg rounded-2xl w-[90%] max-w-md"
                     >
-                        <div className="bg-red-500/20 p-2 rounded-full text-red-400">
+                        <div className="bg-red-500/20 p-2 rounded-full text-red-400 shrink-0">
                             <AlertCircle size={20} />
                         </div>
                         <div className="flex flex-col">
@@ -267,17 +270,19 @@ export default function Apply() {
                 )}
             </AnimatePresence>
 
-            {/* FORM CONTAINER - Mengurangi Blur menjadi md untuk performa */}
+            {/* FORM CONTAINER */}
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="w-full max-w-2xl bg-[#0f0a18]/80 backdrop-blur-md rounded-3xl shadow-[0_0_30px_rgba(139,92,246,0.1)] border border-purple-500/20 relative z-10 overflow-hidden"
+                // UBAHAN 2: w-full memastikan responsif, max-w-2xl membatasi lebar di layar besar.
+                // mx-auto membantu centering tambahan jika flexbox gagal (jarang terjadi).
+                className="w-full max-w-2xl mx-auto bg-[#0f0a18]/80 backdrop-blur-md rounded-3xl shadow-[0_0_30px_rgba(139,92,246,0.1)] border border-purple-500/20 relative z-10 overflow-hidden"
             >
                 {/* Bagian Header yang di-Memoize */}
                 <HeaderSection />
 
-                {/* Form Content */}
-                <div className="p-8 md:p-12 pt-0">
+                {/* Form Content - Padding disesuaikan agar rapi di mobile */}
+                <div className="p-6 md:p-12 pt-0">
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="md:col-span-2">
@@ -350,7 +355,7 @@ export default function Apply() {
 
                         <div className="border-t border-white/10 my-4"></div>
 
-                        {/* Dynamic Questions (Di-Memoize per Item) */}
+                        {/* Dynamic Questions */}
                         <AnimatePresence mode="wait">
                             {loadingConfig ? (
                                 <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex justify-center py-8">
@@ -388,5 +393,5 @@ export default function Apply() {
                 </div>
             </motion.div>
         </div>
-    );
+    )
 }

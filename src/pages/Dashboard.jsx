@@ -469,7 +469,7 @@ export default function Dashboard() {
     );
 
     return (
-        <div className="font-sans text-slate-800">
+        <div className="font-sans text-slate-800 pb-20 md:pb-0"> {/* Tambah padding bottom di mobile agar konten tidak tertutup nav browser */}
             <SuccessModal
                 isOpen={modalConfig.isOpen}
                 onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
@@ -477,86 +477,79 @@ export default function Dashboard() {
                 message={modalConfig.message}
             />
 
-            <div className="space-y-8">
+            <div className="space-y-6 md:space-y-8"> {/* Spacing lebih rapat di mobile */}
 
+                {/* --- HEADER SECTION --- */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-black text-slate-800">
+                        <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">
                             Halo, {adminProfile?.name || 'Admin'} 👋
                         </h1>
-                        <p className="text-slate-500 font-medium">
+                        <p className="text-sm md:text-base text-slate-500 font-medium mt-1">
                             Overview Data Rekrutmen
                         </p>
                     </div>
-
-                    {/* <button
-                        onClick={handleManualSync}
-                        disabled={isSyncing}
-                        className="flex items-center gap-3 px-5 py-3 bg-white border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 hover:border-emerald-200 transition-all group active:scale-95 disabled:opacity-70"
-                    >
-                        <motion.div
-                            animate={{ rotate: isSyncing ? 360 : 0 }}
-                            transition={{ repeat: isSyncing ? Infinity : 0, duration: 1, ease: "linear" }}
-                        >
-                            <RefreshCw size={20} className={isSyncing ? "text-emerald-600" : "text-slate-400 group-hover:text-emerald-600"} />
-                        </motion.div>
-                        <span className="font-bold text-slate-600 group-hover:text-emerald-700">
-                            {isSyncing ? "Menyinkronkan..." : "Sync Data"}
-                        </span>
-                    </button> */}
+                    {/* Tombol Sync (Jika di-uncomment nanti) akan otomatis stack di bawah pada mobile */}
                 </div>
 
-
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {/* --- STATS GRID --- */}
+                {/* Mobile: 2 Kolom, Desktop: 4 Kolom. Gap lebih kecil di mobile */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                     {[
-                        { label: "Total", val: stats.total, color: "text-blue-600 bg-blue-50/50", icon: <Users className="w-4 h-4" /> },
-                        { label: "Pending", val: stats.pending, color: "text-amber-600 bg-amber-50/50", icon: <Clock className="w-4 h-4" /> },
-                        { label: "Accepted", val: stats.accepted, color: "text-emerald-600 bg-emerald-50/50", icon: <CheckCircle2 className="w-4 h-4" /> },
-                        { label: "Rejected", val: stats.rejected, color: "text-rose-600 bg-rose-50/50", icon: <XCircle className="w-4 h-4" /> }
+                        { label: "Total", val: stats.total, color: "text-blue-600 bg-blue-50/50", icon: <Users className="w-3.5 h-3.5 md:w-4 md:h-4" /> },
+                        { label: "Pending", val: stats.pending, color: "text-amber-600 bg-amber-50/50", icon: <Clock className="w-3.5 h-3.5 md:w-4 md:h-4" /> },
+                        { label: "Accepted", val: stats.accepted, color: "text-emerald-600 bg-emerald-50/50", icon: <CheckCircle2 className="w-3.5 h-3.5 md:w-4 md:h-4" /> },
+                        { label: "Rejected", val: stats.rejected, color: "text-rose-600 bg-rose-50/50", icon: <XCircle className="w-3.5 h-3.5 md:w-4 md:h-4" /> }
                     ].map((stat, idx) => (
                         <motion.div
                             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}
                             key={stat.label}
-                            className={`p-5 rounded-2xl glass border-0 flex flex-col justify-between h-28 hover:transform hover:-translate-y-1 transition-all duration-300`}
+                            className={`p-4 md:p-5 rounded-2xl glass border-0 flex flex-col justify-between h-24 md:h-28 hover:transform hover:-translate-y-1 transition-all duration-300 shadow-sm`}
                         >
                             <div className="flex justify-between items-start opacity-70">
-                                <span className="text-[10px] font-bold uppercase tracking-widest">{stat.label}</span>
+                                <span className="text-[10px] md:text-[10px] font-bold uppercase tracking-widest">{stat.label}</span>
                                 {stat.icon}
                             </div>
-                            <div className={`text-3xl font-black tracking-tighter ${stat.color.split(' ')[0]}`}>{stat.val}</div>
+                            {/* Font size angka disesuaikan agar tidak terlalu besar di layar kecil */}
+                            <div className={`text-2xl md:text-3xl font-black tracking-tighter ${stat.color.split(' ')[0]}`}>{stat.val}</div>
                         </motion.div>
                     ))}
                 </div>
 
-                {/* Charts Area */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="lg:col-span-2 glass p-6 rounded-3xl min-h-[350px]">
+                {/* --- CHARTS AREA --- */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+                    {/* Chart 1: Competency Map */}
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="lg:col-span-2 glass p-4 md:p-6 rounded-3xl min-h-[300px] md:min-h-[350px]">
                         <div className="mb-4">
-                            <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm"><Activity size={16} /> Competency Map</h3>
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
+                                <Activity size={16} /> Competency Map
+                            </h3>
                         </div>
-                        <div className="h-64 w-full">
+                        <div className="h-56 md:h-64 w-full">
                             <PolarArea data={polarData} options={polarOptions} />
                         </div>
                     </motion.div>
 
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="glass p-6 rounded-3xl flex flex-col items-center justify-center min-h-[350px]">
+                    {/* Chart 2: Status Distribution */}
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="glass p-4 md:p-6 rounded-3xl flex flex-col items-center justify-center min-h-[300px] md:min-h-[350px]">
                         <div className="w-full text-left mb-4">
-                            <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm"><PieChart size={16} /> Status Distribution</h3>
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
+                                <PieChart size={16} /> Status Distribution
+                            </h3>
                             <p className="text-xs text-slate-400 mt-1">Click segments to filter</p>
                         </div>
-                        <div className="relative h-48 w-48">
+                        <div className="relative h-40 w-40 md:h-48 md:w-48">
                             <Doughnut ref={doughnutRef} data={{
                                 labels: stats.doughnutLabels,
                                 datasets: [{ data: stats.doughnutValues, backgroundColor: stats.doughnutColors, borderWidth: 0, hoverOffset: 10 }]
                             }} options={doughnutOptions} />
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <span className="text-3xl font-bold text-slate-700">{stats.total}</span>
+                                <span className="text-2xl md:text-3xl font-bold text-slate-700">{stats.total}</span>
                             </div>
                         </div>
-                        <div className="flex gap-3 mt-6 justify-center flex-wrap">
+                        <div className="flex gap-2 md:gap-3 mt-6 justify-center flex-wrap">
                             {stats.doughnutLabels.map((label, i) => (
-                                <div key={label} className="flex items-center gap-1.5 cursor-pointer" onClick={() => setFilterStatus(label.toLowerCase())}>
+                                <div key={label} className="flex items-center gap-1.5 cursor-pointer p-1" onClick={() => setFilterStatus(label.toLowerCase())}>
                                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: stats.doughnutColors[i] }}></div>
                                     <span className="text-[10px] font-bold text-slate-500 uppercase">{label}</span>
                                 </div>
@@ -565,42 +558,59 @@ export default function Dashboard() {
                     </motion.div>
                 </div>
 
-                {/* Applicants Table */}
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass rounded-3xl overflow-hidden">
-                    <div className="p-6 border-b border-slate-100 flex flex-col gap-4">
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                {/* --- APPLICANTS TABLE --- */}
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass rounded-3xl overflow-hidden shadow-sm">
+
+                    {/* Toolbar Table */}
+                    <div className="p-4 md:p-6 border-b border-slate-100 flex flex-col gap-4">
+                        <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 md:gap-4">
+                            {/* Search Input */}
                             <div className="relative w-full md:w-80">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                                 <input
                                     type="text" placeholder="Search candidates..."
                                     value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2.5 bg-white/50 border border-transparent focus:border-sage-300 rounded-xl text-sm focus:outline-none transition font-medium placeholder:text-slate-400"
+                                    className="w-full pl-9 pr-4 py-2.5 bg-white/50 border border-transparent focus:border-sage-300 rounded-xl text-sm focus:outline-none transition font-medium placeholder:text-slate-400 shadow-sm"
                                 />
                             </div>
+                            {/* CSV Button */}
                             <div className="flex gap-2">
-                                <button onClick={handleExportCSV} className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-xs font-bold rounded-xl hover:bg-slate-900 transition shadow-lg">
-                                    <Download size={14} /> CSV
+                                <button onClick={handleExportCSV} className="w-full md:w-auto flex justify-center items-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-xs font-bold rounded-xl hover:bg-slate-900 transition shadow-lg active:scale-95">
+                                    <Download size={14} /> <span className="md:hidden">Export</span> CSV
                                 </button>
                             </div>
                         </div>
 
-                        {/* Filter Tags */}
-                        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                            <button onClick={() => setFilterStatus('all')} className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide transition ${filterStatus === 'all' ? 'bg-sage-600 text-white' : 'bg-white/50 text-slate-500'}`}>All</button>
-                            <button onClick={() => setFilterStatus('pending')} className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide transition ${filterStatus === 'pending' ? 'bg-amber-400 text-white' : 'bg-white/50 text-slate-500'}`}>Pending</button>
-                            <button onClick={() => setFilterStatus('accepted')} className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide transition ${filterStatus === 'accepted' ? 'bg-emerald-500 text-white' : 'bg-white/50 text-slate-500'}`}>Accepted</button>
-                            <button onClick={() => setFilterStatus('rejected')} className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide transition ${filterStatus === 'rejected' ? 'bg-rose-500 text-white' : 'bg-white/50 text-slate-500'}`}>Rejected</button>
+                        {/* Filter Tags (Scrollable Horizontal on Mobile) */}
+                        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 md:mx-0 md:px-0 no-scrollbar items-center">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase mr-1 flex-shrink-0">Filter:</span>
+                            {['all', 'pending', 'accepted', 'rejected'].map((status) => (
+                                <button
+                                    key={status}
+                                    onClick={() => setFilterStatus(status)}
+                                    className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide transition flex-shrink-0 whitespace-nowrap border border-transparent 
+                                    ${filterStatus === status
+                                            ? status === 'all' ? 'bg-sage-600 text-white shadow-md shadow-sage-200'
+                                                : status === 'pending' ? 'bg-amber-400 text-white shadow-md shadow-amber-200'
+                                                    : status === 'accepted' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200'
+                                                        : 'bg-rose-500 text-white shadow-md shadow-rose-200'
+                                            : 'bg-white/60 text-slate-500 border-slate-100 hover:bg-white'}`}
+                                >
+                                    {status}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
+                    {/* Table Wrapper for Horizontal Scroll */}
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
+                        <table className="w-full text-left border-collapse min-w-[600px] md:min-w-full">
                             <thead className="bg-slate-50/30 text-slate-400 border-b border-slate-100/50">
                                 <tr>
-                                    <th className="p-6 text-[10px] font-bold uppercase tracking-widest pl-8">Name</th>
-                                    <th className="p-6 text-[10px] font-bold uppercase tracking-widest">Division</th>
-                                    <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-center">Avg</th>
-                                    <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-center">Status</th>
+                                    <th className="p-4 md:p-6 text-[10px] font-bold uppercase tracking-widest pl-6 md:pl-8">Name</th>
+                                    <th className="p-4 md:p-6 text-[10px] font-bold uppercase tracking-widest">Division</th>
+                                    <th className="p-4 md:p-6 text-[10px] font-bold uppercase tracking-widest text-center">Avg</th>
+                                    <th className="p-4 md:p-6 text-[10px] font-bold uppercase tracking-widest text-center">Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100/50">
@@ -608,27 +618,27 @@ export default function Dashboard() {
                                     <motion.tr
                                         key={app.id}
                                         onClick={() => handleSelect(app)}
-                                        whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.4)" }}
-                                        className="cursor-pointer transition-colors hover:bg-white/40"
+                                        whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.6)" }}
+                                        className="cursor-pointer transition-colors hover:bg-white/40 active:bg-slate-50"
                                     >
-                                        <td className="p-5 pl-8">
+                                        <td className="p-4 md:p-5 pl-6 md:pl-8">
                                             <div className="font-bold text-slate-700 text-sm">{app.nama}</div>
                                             <div className="text-[10px] text-slate-500 font-medium flex gap-1 items-center mt-0.5">
                                                 <span className="font-mono text-slate-600 bg-slate-100 px-1 rounded">{app.nim}</span>
                                                 <span className="text-slate-300">•</span>
-                                                <span>{app.prodi}</span>
+                                                <span className="truncate max-w-[100px] md:max-w-none">{app.prodi}</span>
                                             </div>
                                         </td>
-                                        <td className="p-5">
-                                            <span className="px-2 py-1 bg-white/60 rounded text-[10px] font-bold uppercase text-slate-500 border border-slate-100">{app.divisi}</span>
+                                        <td className="p-4 md:p-5">
+                                            <span className="px-2 py-1 bg-white/60 rounded text-[10px] font-bold uppercase text-slate-500 border border-slate-100 whitespace-nowrap">{app.divisi}</span>
                                         </td>
-                                        <td className="p-5 text-center font-bold text-sage-600">
+                                        <td className="p-4 md:p-5 text-center font-bold text-sage-600">
                                             {Math.round(Object.values(app.nilai || {}).reduce((a, b) => a + parseInt(b), 0) / 6)}
                                         </td>
-                                        <td className="p-5 text-center">
-                                            <div className={`w-2 h-2 rounded-full mx-auto ${app.status === 'accepted' ? 'bg-emerald-500' :
+                                        <td className="p-4 md:p-5 text-center">
+                                            <div className={`w-2.5 h-2.5 rounded-full mx-auto shadow-sm ring-2 ring-white ${app.status === 'accepted' ? 'bg-emerald-500' :
                                                 app.status === 'rejected' ? 'bg-rose-500' :
-                                                    'bg-amber-400 animate-pulse' // <--- Tambahkan animate-pulse biar status Pending berdenyut
+                                                    'bg-amber-400 animate-pulse'
                                                 }`}></div>
                                         </td>
                                     </motion.tr>
@@ -638,27 +648,38 @@ export default function Dashboard() {
                     </div>
                 </motion.div>
             </div>
-            {/* Slide-over Detail */}
+
+            {/* --- SLIDE-OVER DETAIL (MODAL) --- */}
             <AnimatePresence>
                 {selectedApplicant && (
                     <>
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelectedApplicant(null)} className="fixed inset-0 bg-slate-900/10 backdrop-blur-sm z-50" />
+                        {/* Backdrop Blur */}
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelectedApplicant(null)} className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-50" />
+
+                        {/* Panel */}
                         <motion.div
                             initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
                             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                            className="fixed top-0 right-0 h-full w-full md:w-[450px] bg-white/80 backdrop-blur-xl shadow-2xl z-50 overflow-y-auto flex flex-col border-l border-white/50"
+                            className="fixed top-0 right-0 h-full w-full md:w-[450px] bg-white/90 backdrop-blur-xl shadow-2xl z-50 overflow-y-auto flex flex-col border-l border-white/50"
                         >
-                            <div className="p-6 flex justify-between items-center sticky top-0 bg-white/50 backdrop-blur z-10 border-b border-slate-100/50">
+                            {/* Sticky Header Modal */}
+                            <div className="p-4 md:p-6 flex justify-between items-center sticky top-0 bg-white/80 backdrop-blur-md z-10 border-b border-slate-100/50 shadow-sm">
                                 <div>
-                                    <h2 className="text-xl font-bold text-slate-800">{selectedApplicant.nama}</h2>
-                                    <a href={`https://wa.me/${selectedApplicant.whatsapp}`} target="_blank" rel="noreferrer" className="text-xs text-sage-600 font-bold hover:underline">WhatsApp</a>
+                                    <h2 className="text-lg md:text-xl font-bold text-slate-800 line-clamp-1">{selectedApplicant.nama}</h2>
+                                    <a href={`https://wa.me/${selectedApplicant.whatsapp}`} target="_blank" rel="noreferrer" className="text-xs text-emerald-600 font-bold hover:underline flex items-center gap-1">
+                                        WhatsApp Available
+                                    </a>
                                 </div>
-                                <button onClick={() => setSelectedApplicant(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition"><X size={16} /></button>
+                                <button onClick={() => setSelectedApplicant(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition active:scale-90">
+                                    <X size={18} />
+                                </button>
                             </div>
 
-                            <div className="p-6 space-y-6 flex-1">
+                            {/* Content Body Modal */}
+                            <div className="p-4 md:p-6 space-y-6 flex-1">
 
-                                <div className="h-[300px] w-full relative flex justify-center items-center">
+                                {/* Radar Chart (Responsive Height) */}
+                                <div className="h-[250px] md:h-[300px] w-full relative flex justify-center items-center">
                                     <Radar
                                         data={{
                                             labels: categories.map(c => c.charAt(0).toUpperCase() + c.slice(1)),
@@ -667,16 +688,11 @@ export default function Dashboard() {
                                                 data: categories.map(c => inputScores[c] || 0),
                                                 backgroundColor: 'rgba(82, 143, 82, 0.2)',
                                                 borderColor: '#528f52',
-
-                                                // --- PENGATURAN TITIK (POINT) ---
-                                                pointBackgroundColor: '#fff', // Warna isi titik (Putih)
-                                                pointBorderColor: '#528f52',  // Warna garis pinggir titik (Hijau)
-                                                pointBorderWidth: 2,          // Ketebalan garis pinggir titik
-
-                                                pointRadius: 6,       // <--- UKURAN TITIK (Default biasanya 3, ganti ke 6 atau 8)
-                                                pointHoverRadius: 8,  // <--- UKURAN SAAT MOUSE DIARAHKAN (Hover)
-                                                // --------------------------------
-
+                                                pointBackgroundColor: '#fff',
+                                                pointBorderColor: '#528f52',
+                                                pointBorderWidth: 2,
+                                                pointRadius: 4, // Sedikit lebih kecil di mobile defaultnya
+                                                pointHoverRadius: 6,
                                                 borderWidth: 2,
                                             }]
                                         }}
@@ -685,13 +701,11 @@ export default function Dashboard() {
                                             maintainAspectRatio: false,
                                             scales: {
                                                 r: {
-                                                    min: 0,
-                                                    max: 100,
-                                                    beginAtZero: true,
+                                                    min: 0, max: 100, beginAtZero: true,
                                                     ticks: { display: false, stepSize: 20 },
                                                     grid: { color: '#e2e8f0' },
                                                     pointLabels: {
-                                                        font: { size: 11, weight: 'bold' }, // Ukuran teks label (Speaking, Teknis, dll)
+                                                        font: { size: 10, weight: 'bold' }, // Ukuran font label radar
                                                         color: '#64748b'
                                                     }
                                                 }
@@ -701,16 +715,15 @@ export default function Dashboard() {
                                     />
                                 </div>
 
-                                <div className="space-y-6 pb-24"> {/* Tambah padding bawah agar tidak tertutup tombol */}
-
-                                    {/* --- BAGIAN SCORING (Selalu Aktif) --- */}
+                                <div className="space-y-6 pb-4">
+                                    {/* SCORING INPUTS */}
                                     <div>
                                         <div className="flex justify-between items-center mb-4">
                                             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                                 <Activity size={14} /> Scoring
                                             </h4>
                                             <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-1 rounded border border-slate-200">
-                                                Auto-save on decision
+                                                Auto-save
                                             </span>
                                         </div>
 
@@ -719,34 +732,28 @@ export default function Dashboard() {
                                                 <div key={cat} className="space-y-2">
                                                     <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase">
                                                         <span>{cat}</span>
-                                                        {/* Menampilkan angka skor real-time */}
                                                         <span className={`px-2 py-0.5 rounded text-white ${(inputScores[cat] || 0) > 75 ? 'bg-emerald-500' :
                                                             (inputScores[cat] || 0) > 50 ? 'bg-yellow-500' : 'bg-slate-400'
                                                             }`}>
                                                             {inputScores[cat] || 0}
                                                         </span>
                                                     </div>
-
-                                                    {/* Slider Selalu Muncul (Tanpa isEditing) */}
                                                     <input
-                                                        type="range"
-                                                        min="0"
-                                                        max="100"
+                                                        type="range" min="0" max="100"
                                                         value={inputScores[cat] || 0}
                                                         onChange={e => setInputScores({ ...inputScores, [cat]: parseInt(e.target.value) || 0 })}
-                                                        className="w-full h-2 bg-slate-200 rounded-lg accent-sage-600 cursor-pointer hover:accent-sage-500 transition-all"
+                                                        className="w-full h-2 bg-slate-200 rounded-lg accent-sage-600 cursor-pointer hover:accent-sage-500 transition-all touch-pan-x"
                                                     />
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
 
-                                    {/* --- BAGIAN SUBMISSION DETAILS (Pertanyaan & Jawaban) --- */}
+                                    {/* SUBMISSION DETAILS */}
                                     <div className="mt-6 space-y-3">
                                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-3">
                                             <Edit3 size={14} /> Submission Details
                                         </h4>
-
                                         {formQuestions.length > 0 ? (
                                             formQuestions.map((q, idx) => {
                                                 const detailAnswer = selectedApplicant.answersDetails?.find(a => a.question === q.text || a.id === q.id);
@@ -754,14 +761,13 @@ export default function Dashboard() {
                                                 const finalAnswer = detailAnswer?.answer || legacyAnswer || "-";
 
                                                 return (
-                                                    <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                                    <div key={idx} className="bg-slate-50 p-3 md:p-4 rounded-xl border border-slate-100">
                                                         <div className="flex justify-between items-start mb-1.5">
                                                             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide leading-tight">
-                                                                <span className="text-emerald-600 mr-1">{idx + 1}.</span>
-                                                                {q.text}
+                                                                <span className="text-emerald-600 mr-1">{idx + 1}.</span> {q.text}
                                                             </div>
                                                         </div>
-                                                        <div className="text-sm font-medium text-slate-700 whitespace-pre-wrap leading-relaxed ml-3 border-l-2 border-slate-200 pl-3">
+                                                        <div className="text-xs md:text-sm font-medium text-slate-700 whitespace-pre-wrap leading-relaxed ml-3 border-l-2 border-slate-200 pl-3">
                                                             {finalAnswer}
                                                         </div>
                                                     </div>
@@ -770,9 +776,8 @@ export default function Dashboard() {
                                         ) : (
                                             <div className="text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                                                 <p className="text-slate-400 italic text-xs">
-                                                    {selectedApplicant.answersDetails ? "Menampilkan data tersimpan (Mode Fallback)" : "Memuat pertanyaan..."}
+                                                    {selectedApplicant.answersDetails ? "Menampilkan data tersimpan (Fallback)" : "Memuat pertanyaan..."}
                                                 </p>
-                                                {/* Fallback Data */}
                                                 {selectedApplicant.answersDetails?.map((item, idx) => (
                                                     <div key={idx} className="mt-2 text-left bg-white p-2 rounded border text-xs text-slate-500">
                                                         {item.question}: <span className="text-slate-800">{item.answer}</span>
@@ -782,7 +787,7 @@ export default function Dashboard() {
                                         )}
                                     </div>
 
-                                    {/* --- BAGIAN NOTES (Selalu Aktif) --- */}
+                                    {/* NOTES AREA */}
                                     <div>
                                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                                             <Edit3 size={14} /> Recruiter Notes
@@ -790,26 +795,25 @@ export default function Dashboard() {
                                         <textarea
                                             value={inputNotes}
                                             onChange={e => setInputNotes(e.target.value)}
-                                            className="w-full p-3 border border-slate-200 rounded-xl text-xs font-medium text-slate-600 focus:border-sage-500 focus:ring-1 focus:ring-sage-200 outline-none h-32 resize-none bg-slate-50 focus:bg-white transition-all placeholder:text-slate-400"
-                                            placeholder="Tulis alasan diterima/ditolak atau catatan wawancara di sini..."
+                                            className="w-full p-3 border border-slate-200 rounded-xl text-xs md:text-sm font-medium text-slate-600 focus:border-sage-500 focus:ring-1 focus:ring-sage-200 outline-none h-28 md:h-32 resize-none bg-slate-50 focus:bg-white transition-all placeholder:text-slate-400"
+                                            placeholder="Catatan wawancara..."
                                         />
                                     </div>
-
                                 </div>
 
-                                {/* --- ACTION BUTTONS (Sticky Bottom) --- */}
-                                <div className="p-6 border-t border-slate-100 grid grid-cols-2 gap-3 sticky bottom-0 bg-white/95 backdrop-blur-sm z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                                {/* ACTION BUTTONS (Sticky Bottom) */}
+                                <div className="p-4 md:p-6 border-t border-slate-100 grid grid-cols-2 gap-3 sticky bottom-0 bg-white/95 backdrop-blur-md z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] pb-safe">
                                     <button
                                         onClick={(e) => updateStatus(e, selectedApplicant.id, 'rejected')}
-                                        className="py-3 rounded-xl bg-rose-50 text-rose-600 font-bold text-xs hover:bg-rose-100 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 border border-rose-100"
+                                        className="py-3 md:py-3.5 rounded-xl bg-rose-50 text-rose-600 font-bold text-xs md:text-sm hover:bg-rose-100 hover:shadow-md active:scale-95 transition-all duration-200 border border-rose-100"
                                     >
-                                        Reject & Save
+                                        Reject
                                     </button>
                                     <button
                                         onClick={(e) => updateStatus(e, selectedApplicant.id, 'accepted')}
-                                        className="py-3 rounded-xl bg-sage-600 text-white font-bold text-xs hover:bg-sage-700 hover:shadow-lg hover:shadow-sage-200 hover:-translate-y-0.5 transition-all duration-200"
+                                        className="py-3 md:py-3.5 rounded-xl bg-sage-600 text-white font-bold text-xs md:text-sm hover:bg-sage-700 hover:shadow-lg hover:shadow-sage-200 active:scale-95 transition-all duration-200"
                                     >
-                                        Accept & Save
+                                        Accept
                                     </button>
                                 </div>
                             </div>
@@ -818,5 +822,5 @@ export default function Dashboard() {
                 )}
             </AnimatePresence>
         </div>
-    );
+    )
 }
