@@ -36,7 +36,7 @@ export default function Sidebar({ userRole = "guest", mobileOpen, setMobileOpen 
             to: "/fOrM-bUiLdEr",
             label: "Form Builder",
             icon: <FileEdit size={20} />,
-            roles: ["superadmin", "acara", "ketua"] // Ketua juga bisa edit form jika perlu
+            roles: ["superadmin", "acara", "ketua", "pdd", "humas", "perkab"] // Ketua juga bisa edit form jika perlu
         },
         // --- DIVISI SAYA ---
         {
