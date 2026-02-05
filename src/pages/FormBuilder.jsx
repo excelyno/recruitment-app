@@ -172,7 +172,7 @@ function FormBuilderContent() {
                             <option value="acara">Divisi Acara</option>
                             <option value="humas">Divisi Humas</option>
                             <option value="pdd">Divisi PDD</option>
-                            <option value="perkab">Divisi Perkab</option>
+                            <option value="perkab">Divisi Perkap</option>
                         </select>
                     ) : (
                         <div className="font-bold text-slate-500 pr-4 uppercase tracking-wider text-sm">

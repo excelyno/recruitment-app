@@ -291,30 +291,110 @@ export default function Dashboard() {
     };
     // --- Selesai Copy ---
     const handleLogout = async () => { await signOut(auth); navigate("/"); };
-
     const handleExportCSV = () => {
-        const headers = ["Nama", "Prodi", "Divisi", "WhatsApp", "Status", "Nilai Rata-rata"];
-        const rows = filteredApplicants.map(app => [
-            app.nama,
-            app.prodi,
-            app.divisi,
-            app.whatsapp,
-            app.status,
-            (Object.values(app.nilai || {}).reduce((a, b) => a + parseInt(b), 0) / 6).toFixed(1)
-        ]);
+        try {
+            // 1. Cek Data Kosong
+            if (!filteredApplicants || filteredApplicants.length === 0) {
+                alert("Tidak ada data untuk diexport!");
+                return;
+            }
 
-        const csvContent = "data:text/csv;charset=utf-8,"
-            + headers.join(",") + "\n"
-            + rows.map(e => e.join(",")).join("\n");
+            // 2. Deteksi Kolom Nilai secara Dinamis
+            const sampleNilai = filteredApplicants.find(app => app.nilai)?.nilai || {};
+            const scoreKeys = Object.keys(sampleNilai);
 
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "recruitment_data.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+            // 3. Susun Header CSV
+            const headers = [
+                "NIM",                // Angka Statis
+                "Nama Lengkap",
+                "Angkatan",
+                "Program Studi",
+                "Divisi",
+                "WhatsApp",           // Angka Statis
+                "Status",
+                ...scoreKeys.map(key => key.toUpperCase()),
+                "Rata-Rata",
+                "Catatan Recruiter",
+                "Tanggal Daftar"
+            ];
+
+            // 4. Helper: Sanitasi Text
+            const escapeCsv = (text) => {
+                if (text === null || text === undefined) return "";
+                const str = String(text);
+                // Jika mengandung koma, enter, atau kutip dua, bungkus dengan kutip
+                if (str.includes(",") || str.includes("\n") || str.includes('"')) {
+                    return `"${str.replace(/"/g, '""')}"`;
+                }
+                return str;
+            };
+
+            // 5. Helper: Format Tanggal Firestore
+            const formatDate = (timestamp) => {
+                if (!timestamp || !timestamp.seconds) return "-";
+                return new Date(timestamp.seconds * 1000).toLocaleString('id-ID');
+            };
+
+            // 6. Mapping Data Pelamar ke Baris CSV
+            const rows = filteredApplicants.map(app => {
+                const nilai = app.nilai || {};
+
+                // Ambil nilai per kategori
+                const scores = scoreKeys.map(key => parseInt(nilai[key]) || 0);
+
+                // Hitung Rata-rata
+                const total = scores.reduce((a, b) => a + b, 0);
+                const avg = scores.length > 0 ? (total / scores.length).toFixed(2) : "0";
+
+                return [
+                    // --- PERUBAHAN DI SINI: NIM DIBUAT STATIC ---
+                    escapeCsv(app.nim ? `'${app.nim}` : "-"),  // Tambah tanda kutip (') biar tidak jadi Exponent
+
+                    escapeCsv(app.nama),
+                    escapeCsv(app.angkatan),
+                    escapeCsv(app.prodi),
+                    escapeCsv(app.divisi),
+
+                    // --- PERUBAHAN DI SINI: WHATSAPP DIBUAT STATIC ---
+                    escapeCsv(app.whatsapp ? `'${app.whatsapp}` : "-"), // Tambah tanda kutip (')
+
+                    escapeCsv((app.status || "Pending").toUpperCase()),
+                    ...scores,
+                    avg,
+                    escapeCsv(app.recruiterNotes || "-"),
+                    formatDate(app.createdAt)
+                ];
+            });
+
+            // 7. Gabungkan Header & Rows
+            const csvContent = [
+                headers.join(","),
+                ...rows.map(row => row.join(","))
+            ].join("\n");
+
+            // 8. Download File dengan BOM (Agar Excel baca karakter UTF-8 dg benar)
+            const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+
+            // Nama File
+            const dateStr = new Date().toISOString().split('T')[0];
+            const divName = filterDivisi !== 'all' ? filterDivisi : 'Semua';
+            const fileName = `Rekrutmen_${divName}_${dateStr}.csv`;
+
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", fileName);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+        } catch (error) {
+            console.error("Gagal Export CSV:", error);
+            alert("Terjadi kesalahan saat membuat file CSV. Cek console.");
+        }
     };
+
+
 
     // Chart Configuration
     // 1. Tambahkan useMemo di polarData (Dependency: stats.avgScores)
@@ -371,6 +451,16 @@ export default function Dashboard() {
             event.native.target.style.cursor = chartElement.length ? 'pointer' : 'default';
         }
     }), [handleDoughnutClick]);
+
+    //debugging 
+
+    // if (filteredApplicants && filteredApplicants.length > 0) {
+    //     console.log("=== DATA PELAMAR (COPY BAGIAN BAWAH INI) ===");
+    //     console.log(JSON.stringify(filteredApplicants[0], null, 2));
+    //     console.log("============================================");
+    // } else {
+    //     console.log("Data filteredApplicants masih kosong/loading...");
+    // }
 
     if (loading) return (
         <div className="min-h-[60vh] flex items-center justify-center">

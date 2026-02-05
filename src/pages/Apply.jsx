@@ -339,7 +339,7 @@ export default function Apply() {
                                         <option value="acara" className="bg-[#1a1025]">Divisi Acara</option>
                                         <option value="humas" className="bg-[#1a1025]">Divisi Humas</option>
                                         <option value="pdd" className="bg-[#1a1025]">Divisi PDD</option>
-                                        <option value="perkab" className="bg-[#1a1025]">Divisi Perkab</option>
+                                        <option value="perkab" className="bg-[#1a1025]">Divisi Perkap</option>
                                     </select>
                                     <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-purple-400">
                                         <Sparkles size={16} />
