@@ -332,7 +332,7 @@ export default function Apply() {
                                     value={formData.whatsapp}
                                     onChange={handleChange}
                                     className="w-full bg-white/5 border border-white/10 text-purple-100 px-4 py-3 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all hover:bg-white/10"
-                                    placeholder="08..."
+                                    placeholder="+62..."
                                 />
                             </div>
                             <div className="md:col-span-2">
